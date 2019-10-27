@@ -11,9 +11,7 @@ import os
 import sys
 import re
 import random
-import optparse
 
-WORD_SPLIT_REGEX = re.compile(r"[\w']+|[.,!?;]")
 DEFAULT_TEXT = \
 """The account proposed by Richard Shillcock and colleagues, 
 also suggests another mechanism that could be at work in the meme. 
