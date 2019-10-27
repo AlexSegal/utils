@@ -5,6 +5,11 @@ It deosn't mttaer in waht oredr the ltteers in a wrod are, the olny iprmoetnt
 tihng is taht the frist and lsat ltteer be at the rghit pclae...
 
 Let's prove the famous statement wrong!
+
+Usage:
+word_shuffle.py             : process an print the default text
+word_shuffle.py -           : type your text and hit Ctrl+Z when you're done
+word_shuffle.py <filename>  : process text from <filename>
 """
 
 import os
@@ -62,7 +67,8 @@ def shuffle_word(w):
         suf += mid[-1]
         mid = mid[:-1]
 
-    # If the stripped part is 3 chars or shorter, we would not be able to shuffle the middle:
+    # If the stripped part is 3 chars or shorter,
+    # we would not be able to shuffle the middle:
     if len(mid) <= 3:
         return w
 
@@ -71,6 +77,7 @@ def shuffle_word(w):
     suf = mid[-1] + suf
     mid = mid[1:-1]
 
+    # Now join all the parts back together:
     return pre + shuffle_chars(mid) + suf
 
 
@@ -81,10 +88,11 @@ def shuffle_line(s):
 
     for word in s.split(' '):
         # Skip numbers and short strings:
-        if word.isdigit() or len(word) < 4:
+        if word.isdigit() or len(word) <= 3:
             newWords.append(word)
         else:
-            # Keep first and last chars and shuffle the ones in between:
+            # Process the word by keeping the first and the last chars
+            # and shuffling the ones in between:
             newWords.append(shuffle_word(word))
 
     return ' '.join(newWords)
