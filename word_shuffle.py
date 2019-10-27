@@ -7,8 +7,8 @@ tihng is taht the frist and lsat ltteer be at the rghit pclae...
 Let's prove the famous statement wrong!
 
 Usage:
-word_shuffle.py             : process an print the default text
-word_shuffle.py -           : type your text and hit Ctrl+Z when you're done
+word_shuffle.py             : process and print the default text
+word_shuffle.py -           : type your text and hit Ctrl+D when you're done
 word_shuffle.py <filename>  : process text from <filename>
 """
 
