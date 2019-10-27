@@ -106,6 +106,8 @@ if __name__ == '__main__':
     else:
         text = file(sys.argv[1]).readlines()
 
+    text = [x.decode('utf-8') for x in text]
+
     sys.stderr.write('Output:\n')
 
     for line in text:
