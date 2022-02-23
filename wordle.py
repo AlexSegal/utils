@@ -103,7 +103,8 @@ class WordFinder(object):
 
         greyExcludeRegex = None if greyExcludeRegex == '[]' \
                            else re.compile(greyExcludeRegex)
-        yellowExcludeRegex = re.compile(yellowExcludeRegex)
+        yellowExcludeRegex = re.compile(yellowExcludeRegex) if yellowExcludeRegex \
+                             else None
         greenIncludeRegex = re.compile(greenIncludeRegex)
 
         result = list(self.words)
