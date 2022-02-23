@@ -85,8 +85,8 @@ class WordFinder(object):
             else:
                 yellowExcludeRegex += '[' + ''.join(chars) + ']'
 
-        allYellowAndGreenChars.update(self.greenChars)
-
+        allYellowAndGreenChars.update([x for x in self.greenChars if x])
+        
         # Prepare a regex to only include words with characters in green positions: 
         greenIncludeRegex = ''.join([(x or '.') for x in self.greenChars])
 
