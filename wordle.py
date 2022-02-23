@@ -77,13 +77,16 @@ class WordFinder(object):
         allYellowAndGreenChars = set()
 
         # Prepare a regex to exclude characters at the yellow positions:
-        yellowExcludeRegex = ''
-        for chars in self.yellowChars:
+        yellowExcludeParts = []
+        
+        for i, chars in enumerate(self.yellowChars):
             allYellowAndGreenChars.update(chars)
             if not chars:
-                yellowExcludeRegex += ' '
-            else:
-                yellowExcludeRegex += '[' + ''.join(chars) + ']'
+                continue
+            yellowExcludeParts.append('.'*i + 
+                         '[' + ''.join(chars) + ']' + 
+                         '.'*(WORD_LEN-i-1))
+        yellowExcludeRegex = '|'.join(yellowExcludeParts)
 
         allYellowAndGreenChars.update([x for x in self.greenChars if x])
         
@@ -93,10 +96,10 @@ class WordFinder(object):
         # Prepare a regex to exclude words with grey characters: 
         greyExcludeRegex = '[' + ''.join(self.greyCharSet) + ']'
 
-        log.debug('greyExcludeRegex: ' + greyExcludeRegex) 
-        log.debug('yellowExcludeRegex: ' + yellowExcludeRegex) 
-        log.debug('greenIncludeRegex: ' + greenIncludeRegex) 
-        log.debug('allYellowAndGreenChars: {}'.format(allYellowAndGreenChars)) 
+        log.debug('greyExcludeRegex: {}'.format(repr(greyExcludeRegex)))
+        log.debug('yellowExcludeRegex: {}'.format(repr(yellowExcludeRegex)))
+        log.debug('greenIncludeRegex: {}'.format(repr(greenIncludeRegex))) 
+        log.debug('allYellowAndGreenChars: {}'.format(repr(allYellowAndGreenChars))) 
 
         greyExcludeRegex = None if greyExcludeRegex == '[]' \
                            else re.compile(greyExcludeRegex)
