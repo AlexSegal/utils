@@ -23,12 +23,12 @@ class WordFinder(object):
     def __init__(self):
         """Create the object
         """
-        # Grey characters have are a simple set:
+        # Grey characters are stored in a python set:
         self.greyCharSet = set()
-        # Green ones are a 5-element char list: positions matter:
+        # Green ones are a 5-element char list: theit positions matter!
         self.greenChars = [''] * WORD_LEN
-        # Yellow ones are a 5-element list of char sets. There could be multiple
-        # characters in the same position:
+        # Yellow ones are a 5-element list of char sets. It's because we need
+        # to store multiple characters per each position:
         self.yellowChars = [set() for x in range(WORD_LEN)]
 
         if not self.words:
