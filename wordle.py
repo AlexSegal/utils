@@ -210,6 +210,7 @@ if __name__ == '__main__':
     if not os.path.exists(WORD_FILE):
         log.error('Word file ({}) not found. Make sure you run this script ' \
                   'in a Unix-like environment'.format(WORD_FILE))
+        sys.exit(1)
 
     main()
 
