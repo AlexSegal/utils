@@ -50,6 +50,9 @@ class WordFinder(object):
         char = char.lower()
         if AZ_REGEX.match(char):
             self.greenChars[pos] = char
+            # Also let's remove the char from the grey ones:
+            if char in self.greyCharSet:
+                self.greyCharSet.remove(char)
 
     def addYellowChar(self, char, pos):
         """Add a yellow char at a specified position.
@@ -59,12 +62,21 @@ class WordFinder(object):
         char = char.lower()
         if AZ_REGEX.match(char):
             self.yellowChars[pos].add(char)
+            # Also let's remove the char from the grey ones:
+            if char in self.greyCharSet:
+                self.greyCharSet.remove(char)
 
     def addGreyChar(self, char):
         """Add a grey char, no positions necessary.
         """
         assert(len(char) == 1)
         if AZ_REGEX.match(char):
+            # NOTE: let's make sure we never add chars that are already 
+            # in green or yellow sets - wordle can paint the duplicates grey:
+            if char in self.greenChars or \
+               any([char in x for x in self.yellowChars]):
+                return
+
             self.greyCharSet.add(char)
 
     def findMatchingWords(self):
