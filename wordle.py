@@ -193,14 +193,27 @@ def main():
 
         found = finder.findMatchingWords()
 
-        log.info('Found {} matching word(s). Want to see them? [y/N/x]?'.format(len(found)))
-        line = sys.stdin.readline().strip().lower()
+        if not found:
+            log.warning('No matching words found! ' \
+                         'Usually it means you have made a mistake, or the word ' \
+                         'is not present in the file {}\n'.format(WORD_FILE))
+            log.info('Do you want to start over? [y/N/x]?'.format(len(found)))
+            line = sys.stdin.readline().strip().lower()
+            if 'y' in line:
+                finder = WordFinder()
+                iteration = 0
+                log.info('*** Restarting **')
+                continue
+        else:
+            log.info('Found {} matching word(s). Want to see them? [y/N/x]?' \
+                      .format(len(found)))
+            line = sys.stdin.readline().strip().lower()
         
-        if 'y' in line or ('x' in line and len(found) < 50):
-            print('-' * 5) 
-            for word in found:
-                print(word)
-            print('-' * 5) 
+            if 'y' in line or ('x' in line and len(found) < 50):
+                print('-' * 5) 
+                for word in found:
+                    print(word)
+                print('-' * 5) 
 
         if 'x' in line:
             return
