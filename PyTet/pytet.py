@@ -1,8 +1,15 @@
 #!/bin/env python
 
+import sys
 import time
 import random
-import pygame
+
+try:
+    import pygame
+except ImportError as e:
+    print('%s. Please install it: "pip install pygame"' % e)
+    sys.exit(1)
+
 
 class Piece:
     CELLMAPS = {
