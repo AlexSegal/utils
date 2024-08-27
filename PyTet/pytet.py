@@ -4,7 +4,7 @@ import time
 import random
 import pygame
 
-class Tetromino:
+class Piece:
     CELLMAPS = {
         'I': [
             (
@@ -149,7 +149,7 @@ class Tetromino:
         return self.getCellMap(result)
     
     def getCellCoords(self, dx=0, dy=0, rot=0):
-        """Return a list of integer (x, y) pairs: coordinates of the tetromino
+        """Return a list of integer (x, y) pairs: coordinates of the piece
         cells, corresponding to the specified rotation (0..3 == 0..270 degrees). 
         Add dx and dy to all of them.
         """
@@ -182,36 +182,36 @@ class Well:
 
     def __init__(self):
         self.shards = {}
-        self.curTetrominoData = {}
+        self.curPieceData = {}
 
-    def addTetromino(self, tet, color=(255, 255, 255)):
-        self.curTetrominoData = {
-            'tetromino': tet,
+    def addPiece(self, piece, color=(255, 255, 255)):
+        self.curPieceData = {
+            'piece': piece,
             'color': color,
-            'x': self.CELLS_X // 2 - tet.bboxsize // 2,
-            'y': -tet.bboxsize,
+            'x': self.CELLS_X // 2 - piece.bboxsize // 2,
+            'y': -piece.bboxsize,
             'rot': 0
         }
 
-    def canTransformTetromino(self, dx, dy, drot):
-        """Check the hypotetical/future position of the tetromino and 
+    def canTransformPiece(self, dx, dy, drot):
+        """Check the hypotetical/future position of the piece and 
         return one of HIT_* values.
         Abs values of dx, dy and drot cannot be more than 1!
         """
-        if not self.curTetrominoData:
+        if not self.curPieceData:
             return False
 
         assert(abs(dx) <= 1)
         assert(abs(dy) <= 1)
         assert(abs(drot) <= 1)
 
-        tet = self.curTetrominoData['tetromino']
-        x = self.curTetrominoData['x'] + dx
-        y = self.curTetrominoData['y'] + dy
-        rot = self.curTetrominoData['rot'] + drot
+        piece = self.curPieceData['piece']
+        x = self.curPieceData['x'] + dx
+        y = self.curPieceData['y'] + dy
+        rot = self.curPieceData['rot'] + drot
 
         # Hypothetical new transform:
-        cellCoords = tet.getCellCoords(x, y, rot)
+        cellCoords = piece.getCellCoords(x, y, rot)
         
         # Check against wells boundaries:
         for x, y in cellCoords:
@@ -225,22 +225,22 @@ class Well:
         return self.HIT_SHARDS if any(k in self.shards for k in cellCoords) \
                else self.HIT_NONE
 
-    def shardTetromino(self):
-        if not self.curTetrominoData:
+    def shardPiece(self):
+        if not self.curPieceData:
             return
         
-        tet = self.curTetrominoData['tetromino']
-        x = self.curTetrominoData['x']
-        y = self.curTetrominoData['y']
-        rot = self.curTetrominoData['rot']
-        color = self.curTetrominoData['color']
+        piece = self.curPieceData['piece']
+        x = self.curPieceData['x']
+        y = self.curPieceData['y']
+        rot = self.curPieceData['rot']
+        color = self.curPieceData['color']
 
-        for x, y in tet.getCellCoords(x, y, rot):
+        for x, y in piece.getCellCoords(x, y, rot):
             if x >= 0 and x < self.CELLS_X and \
                y >= 0 and y < self.CELLS_Y:
                 self.shards[(x, y)] = color
 
-        self.curTetrominoData = {}
+        self.curPieceData = {}
 
     def collapseShardRow(self, row):
         for x, y in list(self.shards.keys()):
@@ -265,19 +265,19 @@ class Well:
 
     def makeCellsForDrawing(self):
         """Return a full list of cells to be drawn. Each element is a tuple:
-        (x, y, (R, G, B), is_tetromino)
+        (x, y, (R, G, B), is_piece)
         """
         result = []
 
-        if self.curTetrominoData:
-            tet = self.curTetrominoData['tetromino']
-            x = self.curTetrominoData['x']
-            y = self.curTetrominoData['y']
-            rot = self.curTetrominoData['rot']
-            color = self.curTetrominoData['color']
+        if self.curPieceData:
+            piece = self.curPieceData['piece']
+            x = self.curPieceData['x']
+            y = self.curPieceData['y']
+            rot = self.curPieceData['rot']
+            color = self.curPieceData['color']
 
-            # Current tetromino:
-            for (x, y) in tet.getCellCoords(x, y, rot):
+            # Current piece:
+            for (x, y) in piece.getCellCoords(x, y, rot):
                 if x >= 0 and x < self.CELLS_X and \
                    y >= 0 and y < self.CELLS_Y:
                     result.append((x, y, color, True))
@@ -288,45 +288,45 @@ class Well:
 
         return result
 
-    def advance(self, dx=0, dy=1, drot=0, nextTetromino=None, nextTetrominoColor=None):
-        """Advance the time, attempt to move the falling tetromino 1 cell down, 
-        and do whatever is necessary after that, e.g. shard a new tetromino and 
+    def advance(self, dx=0, dy=1, drot=0, nextPiece=None, nextPieceColor=None):
+        """Advance the time, attempt to move the falling piece 1 cell down, 
+        and do whatever is necessary after that, e.g. shard a new piece and 
         collapse the shards etc.
         Return either the number of collapsed shards, zero, or a negative value:
         game over.
         """
-        if not self.curTetrominoData:
-            if not nextTetromino:
-                nextTetromino = Tetromino.makeRandom()
+        if not self.curPieceData:
+            if not nextPiece:
+                nextPiece = Piece.makeRandom()
             
-            color = nextTetrominoColor or (random.randint(50, 235), 
+            color = nextPieceColor or (random.randint(50, 235), 
                                            random.randint(50, 235), 
                                            random.randint(50, 235))
 
-            self.addTetromino(nextTetromino, color)
+            self.addPiece(nextPiece, color)
 
-            if self.canTransformTetromino(dx=0, dy=0, drot=0) != self.HIT_NONE:
+            if self.canTransformPiece(dx=0, dy=0, drot=0) != self.HIT_NONE:
                 # Well is full up to the brim, stop the game!
                 return -1
             
             return 0
         
-        hit = self.canTransformTetromino(dx=dx, dy=dy, drot=drot)
+        hit = self.canTransformPiece(dx=dx, dy=dy, drot=drot)
 
         if hit == self.HIT_SIDES:
             return 0
 
         if hit == self.HIT_NONE:
-            self.curTetrominoData['x'] += dx
-            self.curTetrominoData['y'] += dy
-            self.curTetrominoData['rot'] += drot
+            self.curPieceData['x'] += dx
+            self.curPieceData['y'] += dy
+            self.curPieceData['rot'] += drot
             return 0
         
         if hit in (self.HIT_BOTTOM, self.HIT_SHARDS):
-            self.shardTetromino()
+            self.shardPiece()
             return self.checkAndCollapseShards()
 
-        raise RuntimeError('canTransformTetromino returned unsupported value: ' \
+        raise RuntimeError('canTransformPiece returned unsupported value: ' \
                            '%s' % repr(hit))
     
 
@@ -375,7 +375,7 @@ class Canvas:
         pygame.draw.polygon(self.screen, color, verts) 
 
     def drawWellContents(self):
-        for x, y, color, is_tetromino in self.well.makeCellsForDrawing():
+        for x, y, color, is_piece in self.well.makeCellsForDrawing():
             self.drawCell(x, y, color)
 
     def loop(self):
