@@ -179,6 +179,7 @@ class Well:
     HIT_SIDES = 1
     HIT_BOTTOM = 2
     HIT_SHARDS = 3
+    GAME_OVER = 10
 
     def __init__(self):
         self.shards = {}
@@ -193,7 +194,7 @@ class Well:
             'rot': 0
         }
 
-    def canTransformPiece(self, dx, dy, drot):
+    def checkCollision(self, dx, dy, drot):
         """Check the hypotetical/future position of the piece and 
         return one of HIT_* values.
         Abs values of dx, dy and drot cannot be more than 1!
@@ -292,41 +293,49 @@ class Well:
         """Advance the time, attempt to move the falling piece 1 cell down, 
         and do whatever is necessary after that, e.g. shard a new piece and 
         collapse the shards etc.
-        Return either the number of collapsed shards, zero, or a negative value:
-        game over.
+        Return a 2-element tuple: the hit event and one of:
+            * number of collapsed shards if we hit the bottom/other shards, 
+            * zero if nothing important happened, 
+            * or a negative value: game over
         """
         if not self.curPieceData:
             if not nextPiece:
                 nextPiece = Piece.makeRandom()
             
-            color = nextPieceColor or (random.randint(50, 235), 
-                                           random.randint(50, 235), 
-                                           random.randint(50, 235))
+            color = nextPieceColor or (random.randint(50, 250), 
+                                       random.randint(50, 250), 
+                                       random.randint(50, 250))
 
             self.addPiece(nextPiece, color)
 
-            if self.canTransformPiece(dx=0, dy=0, drot=0) != self.HIT_NONE:
+            if self.checkCollision(dx=0, dy=0, drot=0) != self.HIT_NONE:
                 # Well is full up to the brim, stop the game!
-                return -1
+                return (self.GAME_OVER, 0)
             
-            return 0
+            return (self.HIT_NONE, 0)
         
-        hit = self.canTransformPiece(dx=dx, dy=dy, drot=drot)
+        hit = self.checkCollision(dx=dx, dy=dy, drot=drot)
 
         if hit == self.HIT_SIDES:
-            return 0
+            return (hit, 0)
 
         if hit == self.HIT_NONE:
             self.curPieceData['x'] += dx
             self.curPieceData['y'] += dy
             self.curPieceData['rot'] += drot
-            return 0
+            return (hit, 0)
         
         if hit in (self.HIT_BOTTOM, self.HIT_SHARDS):
+            if dy == 0:
+                # We hit the bottom or the shards, but we were moving sideways
+                # or rotating, not falling, so it's okay to do nothing, as if 
+                # we hit the sides:
+                return (hit, 0)
+            
             self.shardPiece()
-            return self.checkAndCollapseShards()
+            return (hit, self.checkAndCollapseShards())
 
-        raise RuntimeError('canTransformPiece returned unsupported value: ' \
+        raise RuntimeError('checkCollision returned unsupported value: ' \
                            '%s' % repr(hit))
     
 
@@ -340,6 +349,8 @@ class Canvas:
         """Create the draw manager, initialize the screen for drawing
         """
         pygame.init()
+        pygame.key.set_repeat(400, 200)
+
         self.screen = pygame.display.set_mode([SCREEN_MAX_X, SCREEN_MAX_Y])
         self.cellSize = cellSize
         self.well = Well()
@@ -351,6 +362,8 @@ class Canvas:
                           wellOrgY + Well.CELLS_Y * cellSize))
         # Fill the background:
         self.screen.fill((127, 127, 127))
+        self.score = 0
+        self.frameDelay = 0.3
             
     def mapCellCoordsToCanvas(self, x, y):
         return (self.wellBbox[0][0] + x * self.cellSize,
@@ -380,9 +393,11 @@ class Canvas:
 
     def loop(self):
         # Run until the user asks to quit
-        rot = 0
+        freeFalling = False
 
         while True:
+            t = time.time()
+
             self.drawWellBG((20, 40, 0))
 
             dx = 0
@@ -391,37 +406,48 @@ class Canvas:
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    break
+                    return
                 
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_LEFT:
-                        dx = -1
-                    if event.key == pygame.K_RIGHT:
-                        dx = 1
-                    if event.key == pygame.K_UP:
-                        drot = -1
-                    if event.key == pygame.K_DOWN:
-                        drot = 1
+                    if event.key == pygame.K_SPACE:
+                        freeFalling = True
+                        dx = 0
+                        drot = 0 
+                    else:
+                        if event.key == pygame.K_LEFT:
+                            dx = -1
+                        if event.key == pygame.K_RIGHT:
+                            dx = 1
+                        if event.key == pygame.K_UP:
+                            drot = -1
+                        if event.key == pygame.K_DOWN:
+                            drot = 1
 
-            # Check 1: only consider user input with no falling down:
-            if dx or drot:
-                ret = self.well.advance(dx, 0, drot)
+            if not freeFalling:
+                # Check 1: only consider user input with no falling down:
+                if dx or drot:
+                    hit, score = self.well.advance(dx, 0, drot)
+                    self.score += score
 
-                if ret < 0:
-                    break
+                    if hit == Well.GAME_OVER:
+                        break
 
             # Check 2: apply dy
-            ret = self.well.advance(0, dy, 0)
+            hit, score = self.well.advance(0, dy, 0)
+            self.score += score
 
-            if ret < 0:
-                break
+            if hit in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
+                freeFalling = False
 
             self.drawWellContents()
 
             # Flip the display page
             pygame.display.flip()        
 
-            time.sleep(0.25)
+            if not freeFalling:
+                sleep = time.time() - t + self.frameDelay
+                if sleep > 0:
+                    time.sleep(sleep)
 
     def close(self):
         pygame.quit()
