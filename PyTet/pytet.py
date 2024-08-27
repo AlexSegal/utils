@@ -243,12 +243,29 @@ class Well:
 
         self.curPieceData = {}
 
-    def collapseShardRow(self, row):
+    def removeShardLayer(self, row):
+        """Remove the row of shards, but that's it. Don't attempt to drop the
+        cells above.
+        """
         for x, y in list(self.shards.keys()):
             if y == row:
                 self.shards.pop((x, y))
-            elif y < row:
-                self.shards[(x, y+1)] = self.shards.pop((x, y))
+
+    def dropCellsAboveCollapsedRow(self, row):
+        """Drop sharded cells above the specified row, into empty spaces below.
+        """
+        while True:
+            anyChanges = False
+
+            for eachrow in range(row-1, -1, -1):
+                rowXYs = [(x, y) for (x, y) in self.shards.keys() if y == eachrow]
+                for x, y in rowXYs:
+                    if (x, y+1) not in self.shards:
+                        self.shards[(x, y+1)] = self.shards.pop((x, y))
+                        anyChanges = True
+
+            if not anyChanges:
+                return
 
     def checkAndCollapseShards(self):
         result = 0
@@ -257,7 +274,8 @@ class Well:
 
         while y >=0:
             if all((x, y) in self.shards for x in range(0, self.CELLS_X)):
-                self.collapseShardRow(y)
+                self.removeShardLayer(y)
+                self.dropCellsAboveCollapsedRow(y)
                 result += self.CELLS_X 
             else:
                 y -= 1
@@ -349,7 +367,7 @@ class Canvas:
         """Create the draw manager, initialize the screen for drawing
         """
         pygame.init()
-        pygame.key.set_repeat(400, 200)
+        pygame.key.set_repeat(300, 200)
 
         self.screen = pygame.display.set_mode([SCREEN_MAX_X, SCREEN_MAX_Y])
         self.cellSize = cellSize
@@ -392,16 +410,15 @@ class Canvas:
             self.drawCell(x, y, color)
 
     def loop(self):
-        # Run until the user asks to quit
+        """Run this until the user asks to quit
+        """
         freeFalling = False
+        t = time.time()
 
         while True:
-            t = time.time()
-
-            self.drawWellBG((20, 40, 0))
+            self.drawWellBG((30, 30, 30))
 
             dx = 0
-            dy = 1
             drot = 0
             
             for event in pygame.event.get():
@@ -424,7 +441,7 @@ class Canvas:
                             drot = 1
 
             if not freeFalling:
-                # Check 1: only consider user input with no falling down:
+                # Check 1: only consider user input: move sideways or rotate:
                 if dx or drot:
                     hit, score = self.well.advance(dx, 0, drot)
                     self.score += score
@@ -432,22 +449,20 @@ class Canvas:
                     if hit == Well.GAME_OVER:
                         break
 
-            # Check 2: apply dy
-            hit, score = self.well.advance(0, dy, 0)
-            self.score += score
+            # Check 2: apply dy=1
+            if freeFalling or time.time() > t + self.frameDelay:
+                t = time.time()
+                hit, score = self.well.advance(dx=0, dy=1, drot=0)
+                self.score += score
 
-            if hit in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
-                freeFalling = False
+                if hit in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
+                    freeFalling = False
 
             self.drawWellContents()
 
             # Flip the display page
             pygame.display.flip()        
 
-            if not freeFalling:
-                sleep = time.time() - t + self.frameDelay
-                if sleep > 0:
-                    time.sleep(sleep)
 
     def close(self):
         pygame.quit()
