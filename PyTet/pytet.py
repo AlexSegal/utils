@@ -3,6 +3,7 @@
 import sys
 import time
 import random
+import colorsys
 
 try:
     import pygame
@@ -191,6 +192,18 @@ class Piece:
     def value(self):
         return self.PIECE_VALUES[self.prototype]
     
+    @classmethod
+    def makeRandomColor(cls, h=(0, 1), s=(0, 1), v=(0, 1)):
+        """Make a random color within the given hue/lightness/saturation ranges.
+        """
+        def remap(x, xmin, xmax):
+            return x * (xmax - xmin) + xmin
+        
+        fresult = colorsys.hsv_to_rgb(remap(random.random(), h[0], h[1]),
+                                        remap(random.random(), s[0], s[1]),
+                                        remap(random.random(), v[0], v[1]))
+        return tuple(int(x * 255) for x in fresult)
+
 
 class Well:
     CELLS_X = 10
@@ -346,10 +359,8 @@ class Well:
             if not nextPiece:
                 nextPiece = Piece.makeRandom()
             
-            color = nextPieceColor or (random.randint(50, 250), 
-                                       random.randint(50, 250), 
-                                       random.randint(50, 250))
-
+            color = nextPieceColor or Piece.makeRandomColor(s=(0.75, 1),
+                                                              v=(0.8, 0.9))
             self.addPiece(nextPiece, color)
 
             if self.checkCollision(dx=0, dy=0, drot=0) != self.HIT_NONE:
