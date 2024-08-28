@@ -399,7 +399,7 @@ class Canvas:
         """Create the draw manager, initialize the screen for drawing
         """
         pygame.init()
-        pygame.key.set_repeat(300, 200)
+        pygame.key.set_repeat(200, 30)
 
         self.screen = pygame.display.set_mode([SCREEN_MAX_X, SCREEN_MAX_Y])
         self.cellSize = cellSize
@@ -545,13 +545,13 @@ class Canvas:
                         self.well.level = max(1, self.well.level - 1)
                     else:
                         if event.key == pygame.K_LEFT:
-                            dx = -1
+                            dx -= 1
                         if event.key == pygame.K_RIGHT:
-                            dx = 1
+                            dx += 1
                         if event.key == pygame.K_UP:
-                            drot = -1
+                            drot -= 1
                         if event.key == pygame.K_DOWN:
-                            drot = 1
+                            drot += 1
 
             if not freeFalling:
                 # Check 1: only consider user input: move sideways or rotate:
