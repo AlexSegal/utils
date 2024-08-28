@@ -470,13 +470,11 @@ class Canvas:
 
     def drawCell(self, x, y, color):
         cx, cy = self.mapCellCoordsToCanvas(x, y)
-        verts = [
-            (cx + 1,                 cy + 1),             
-            (cx + self.cellSize - 1, cy + 1),
-            (cx + self.cellSize - 1, cy + self.cellSize - 1),
-            (cx + 1,                 cy + self.cellSize - 1)
-        ]
-        pygame.draw.polygon(self.screen, color, verts) 
+        bbox = (
+            (cx + 1, cy + 1),
+            (cx + self.cellSize - 1, cy + self.cellSize - 1)
+        )
+        pygame.draw.polygon(self.screen, color, self.makeBboxVerts(bbox)) 
 
     @classmethod
     def makeBboxVerts(cls, bbox):
