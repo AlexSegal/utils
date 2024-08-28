@@ -323,9 +323,12 @@ class Well:
             * zero if nothing important happened, 
             * or a negative value: game over
         """
+        score = 0
+
         if not self.curPieceData:
             if not nextPiece:
                 nextPiece = Piece.makeRandom()
+                score += 4  # TODO?
             
             color = nextPieceColor or (random.randint(50, 250), 
                                        random.randint(50, 250), 
@@ -335,9 +338,9 @@ class Well:
 
             if self.checkCollision(dx=0, dy=0, drot=0) != self.HIT_NONE:
                 # Well is full up to the brim, stop the game!
-                return (self.GAME_OVER, 0)
+                return (self.GAME_OVER, score)
             
-            return (self.HIT_NONE, 0)
+            return (self.HIT_NONE, score)
         
         hit = self.checkCollision(dx=dx, dy=dy, drot=drot)
 
@@ -348,17 +351,17 @@ class Well:
             self.curPieceData['x'] += dx
             self.curPieceData['y'] += dy
             self.curPieceData['rot'] += drot
-            return (hit, 0)
+            return (hit, score)
         
         if hit in (self.HIT_BOTTOM, self.HIT_SHARDS):
             if dy == 0:
                 # We hit the bottom or the shards, but we were moving sideways
                 # or rotating, not falling, so it's okay to do nothing, as if 
                 # we hit the sides:
-                return (hit, 0)
+                return (hit, score)
             
             self.shardPiece()
-            return (hit, self.checkAndCollapseShards())
+            return (hit, score + self.checkAndCollapseShards())
 
         raise RuntimeError('checkCollision returned unsupported value: ' \
                            '%s' % repr(hit))
@@ -381,15 +384,50 @@ class Canvas:
         self.well = Well()
         wellOrgX = (SCREEN_MAX_X + SCREEN_MIN_X) // 2 - Well.CELLS_X // 2 * cellSize
         wellOrgY = (SCREEN_MAX_Y + SCREEN_MIN_Y) // 2 - Well.CELLS_Y // 2 * cellSize
-        self.wellBbox = ((wellOrgX, 
-                          wellOrgY), 
-                         (wellOrgX + Well.CELLS_X * cellSize, 
-                          wellOrgY + Well.CELLS_Y * cellSize))
+        self.wellBbox = (
+            (wellOrgX, 
+             wellOrgY), 
+            (wellOrgX + Well.CELLS_X * cellSize, 
+             wellOrgY + Well.CELLS_Y * cellSize)
+         )
+
+        sidePanelWidth = ((SCREEN_MAX_X - SCREEN_MIN_X) - \
+                          (self.wellBbox[1][0] - self.wellBbox[0][0])) // 4
+        sidePanelHeight = (SCREEN_MAX_Y - SCREEN_MIN_Y) // 4
+        
+        leftPanelOrgX = (self.wellBbox[0][0] + SCREEN_MIN_X) // 2 - \
+                        sidePanelWidth // 2
+        rightPanelOrgX = (self.wellBbox[1][0] + SCREEN_MAX_X) // 2 - \
+                        sidePanelWidth // 2
+        
+        self.leftPanelBbox = (
+            (leftPanelOrgX, 
+             wellOrgY),
+            (leftPanelOrgX + sidePanelWidth,
+             wellOrgY + sidePanelHeight)
+        )
+
+        self.rightPanelBbox = (
+            (rightPanelOrgX, 
+             wellOrgY),
+            (rightPanelOrgX + sidePanelWidth,
+             wellOrgY + sidePanelHeight)
+        )
+
+        self.sysFont = pygame.font.SysFont(None, 24)
+
         # Fill the background:
         self.screen.fill((127, 127, 127))
         self.score = 0
         self.frameDelay = 0.3
-            
+
+    def drawText(self, x, y, text, color=(255, 255, 255), font=None):
+        if not font:
+            font = self.sysFont
+        textobj = font.render(text, True, color)
+        textrect = textobj.get_rect(left=x, bottom=y)
+        self.screen.blit(textobj, textrect)
+
     def mapCellCoordsToCanvas(self, x, y):
         return (self.wellBbox[0][0] + x * self.cellSize,
                 self.wellBbox[0][1] + y * self.cellSize)
@@ -404,17 +442,36 @@ class Canvas:
         ]
         pygame.draw.polygon(self.screen, color, verts) 
 
-    def drawWellBG(self, color):
-        wminx, wminy = self.wellBbox[0]
-        wmaxx, wmaxy = self.wellBbox[1]
-        verts = [
-            (wminx, wminy), (wmaxx, wminy), (wmaxx, wmaxy), (wminx, wmaxy)
+    @classmethod
+    def makeBboxVerts(cls, bbox):
+        minx, miny = bbox[0]
+        maxx, maxy = bbox[1]
+        return [
+            (minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)
         ]
-        pygame.draw.polygon(self.screen, color, verts) 
+
+    def drawWellBG(self, color):
+        return pygame.draw.polygon(self.screen, 
+                                    color, 
+                                    self.makeBboxVerts(self.wellBbox)) 
 
     def drawWellContents(self):
         for x, y, color, is_piece in self.well.makeCellsForDrawing():
             self.drawCell(x, y, color)
+
+    def drawLeftPanel(self, bgcolor=(50, 50, 50)):
+        """Draw the score panel on the left
+        """
+        pygame.draw.polygon(self.screen, 
+                             bgcolor, 
+                             self.makeBboxVerts(self.leftPanelBbox))
+        x, y = self.leftPanelBbox[0]
+        self.drawText(x+10, y+20, 'Score: %d' % self.score) 
+
+    def drawRightPanel(self, bgcolor=(50, 50, 50)):
+        pygame.draw.polygon(self.screen, 
+                             bgcolor, 
+                             self.makeBboxVerts(self.rightPanelBbox)) 
 
     def loop(self):
         """Run this until the user asks to quit
@@ -422,8 +479,12 @@ class Canvas:
         freeFalling = False
         t = time.time()
 
+        self.drawLeftPanel()
+        self.drawRightPanel()
+
         while True:
             self.drawWellBG((30, 30, 30))
+            self.drawLeftPanel()
 
             dx = 0
             drot = 0
@@ -449,12 +510,10 @@ class Canvas:
 
             if not freeFalling:
                 # Check 1: only consider user input: move sideways or rotate:
+                # Even if we hit something here, it would not cause sharding
+                # of the piece!
                 if dx or drot:
-                    hit, score = self.well.advance(dx, 0, drot)
-                    self.score += score
-
-                    if hit == Well.GAME_OVER:
-                        break
+                    self.well.advance(dx, 0, drot)[0]
 
             # Check 2: apply dy=1
             if freeFalling or time.time() > t + self.frameDelay:
