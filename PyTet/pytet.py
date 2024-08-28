@@ -457,7 +457,7 @@ class Canvas:
 
     @property
     def frameDelay(self):
-        return 0.5 / self.well.level + 0.1
+        return max(0, 0.5 - 0.5 * (self.well.level / 20))
 
     def drawText(self, x, y, text, color=(255, 255, 255), font=None):
         if not font:
