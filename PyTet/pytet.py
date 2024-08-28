@@ -227,7 +227,7 @@ class Well:
             'piece': piece,
             'color': color,
             'x': self.CELLS_X // 2 - piece.bboxsize // 2,
-            'y': -piece.bboxsize,
+            'y': 1 - piece.bboxsize,
             'rot': 0
         }
 
@@ -365,6 +365,7 @@ class Well:
 
             if self.checkCollision(dx=0, dy=0, drot=0) != self.HIT_NONE:
                 # Well is full up to the brim, stop the game!
+                print("GAME OVER!")  
                 return self.GAME_OVER
             
             return self.HIT_NONE
@@ -414,7 +415,8 @@ class Canvas:
 
         self.screen = pygame.display.set_mode([SCREEN_MAX_X, SCREEN_MAX_Y])
         self.cellSize = cellSize
-        self.well = Well()
+        self.reset()
+
         wellOrgX = (SCREEN_MAX_X + SCREEN_MIN_X) // 2 - Well.CELLS_X // 2 * cellSize
         wellOrgY = (SCREEN_MAX_Y + SCREEN_MIN_Y) // 2 - Well.CELLS_Y // 2 * cellSize
         self.wellBbox = (
@@ -448,10 +450,10 @@ class Canvas:
         )
 
         self.smallFont = pygame.font.SysFont(None, 22)
-        self.largeFont = pygame.font.Font(pygame.font.get_default_font(), 36)
+        self.largeFont = pygame.font.Font(pygame.font.get_default_font(), 32)
 
-        # Fill the background:
-        self.screen.fill((127, 127, 127))
+    def reset(self):
+        self.well = Well()
 
     @property
     def frameDelay(self):
@@ -527,6 +529,9 @@ class Canvas:
     def loop(self):
         """Run this until the user asks to quit
         """
+        # Fill the background:
+        self.screen.fill((127, 127, 127))
+
         freeFalling = False
         t = time.time()
 
@@ -541,7 +546,7 @@ class Canvas:
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    return
+                    return pygame.QUIT
                 
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
@@ -566,8 +571,10 @@ class Canvas:
                 # Check 1: only consider user input: move sideways or rotate:
                 # Even if we hit something here, it would not cause sharding
                 # of the piece!
-                if dx or drot:
-                    self.well.advance(dx, 0, drot)
+                hit = self.well.advance(dx, 0, drot)
+                    
+                if hit == Well.GAME_OVER:
+                    return
 
             # Check 2: apply dy=1
             if freeFalling or time.time() > t + self.frameDelay:
@@ -576,21 +583,46 @@ class Canvas:
 
                 if hit in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
                     freeFalling = False
-
+                
             self.drawWellContents()
             self.drawLeftPanel()
 
             # Flip the display page
             pygame.display.flip()        
 
-
     def close(self):
         pygame.quit()
         self.screen = None
 
+    def askUserToRestart(self):
+        self.drawText(250, SCREEN_MAX_Y - 60, 
+                      'Game Over. Restart? [Y/N]',
+                      font=self.largeFont)
+        pygame.display.flip()
+
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_y:
+                        return True
+                    elif event.key == pygame.K_n:
+                        return False
+
 def main():
     canvas = Canvas()
-    canvas.loop()
+
+    while True:
+        if canvas.loop() == pygame.QUIT:
+            break
+
+        if canvas.askUserToRestart():
+            canvas.reset()
+        else:
+            break
+        
     canvas.close()
 
 if __name__ == '__main__':
