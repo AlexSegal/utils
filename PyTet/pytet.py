@@ -542,7 +542,9 @@ class Game:
         self.well.reset()
 
     @property
-    def frameDelay(self):
+    def fallPeriod(self):
+        """Time between Y advancement events. The smaller, the faster the game.
+        """
         return max(0, 0.5 - 0.5 * (self.well.level / 20))
 
     def loop(self):
@@ -587,14 +589,13 @@ class Game:
                         if event.key == pygame.K_DOWN:
                             drot += 1
 
-            if not freeFalling:
-                # Check 1: only consider user input: move sideways or rotate:
-                # Even if we hit something here, it would not cause sharding
-                # of the piece!
-                lastEvent = self.well.advance(dx, 0, drot)
+            # Check 1: only consider user input: move sideways or rotate:
+            # Even if we hit something here, it would not cause sharding
+            # of the piece!
+            lastEvent = self.well.advance(dx, 0, drot)
                     
             # Check 2: apply dy=1
-            if freeFalling or time.time() > t + self.frameDelay:
+            if freeFalling or time.time() > t + self.fallPeriod:
                 t = time.time()
                 lastEvent = self.well.advance(dx=0, dy=1, drot=0)
 
