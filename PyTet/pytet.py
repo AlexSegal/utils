@@ -216,6 +216,9 @@ class Well:
     GAME_OVER = 10
 
     def __init__(self):
+        self.reset()
+
+    def reset(self):
         self.shards = {}
         self.curPieceData = {}
         self.score = 0
@@ -399,41 +402,41 @@ class Well:
 
         raise RuntimeError('checkCollision returned unsupported value: ' \
                            '%s' % repr(hit))
-    
 
-SCREEN_MIN_X = 0
-SCREEN_MAX_X = 960
-SCREEN_MIN_Y = 0
-SCREEN_MAX_Y = 720
+  
+class Screen:
+    SCREEN_MIN_X = 0
+    SCREEN_MAX_X = 960
+    SCREEN_MIN_Y = 0
+    SCREEN_MAX_Y = 720
+    CELL_SIZE = 24
 
-class Game:
-    def __init__(self, cellSize=24):
-        """Create the draw manager, initialize the screen for drawing
-        """
+    def __init__(self, well):
+        self.well = well
         pygame.init()
         pygame.key.set_repeat(200, 30)
 
-        self.screen = pygame.display.set_mode([SCREEN_MAX_X, SCREEN_MAX_Y])
-        self.cellSize = cellSize
-        self.reset()
-
-        wellOrgX = (SCREEN_MAX_X + SCREEN_MIN_X) // 2 - Well.CELLS_X // 2 * cellSize
-        wellOrgY = (SCREEN_MAX_Y + SCREEN_MIN_Y) // 2 - Well.CELLS_Y // 2 * cellSize
+        self.pgscreen = pygame.display.set_mode([self.SCREEN_MAX_X, 
+                                                  self.SCREEN_MAX_Y])
+        wellOrgX = (self.SCREEN_MAX_X + self.SCREEN_MIN_X) // 2 - \
+                    Well.CELLS_X // 2 * self.CELL_SIZE
+        wellOrgY = (self.SCREEN_MAX_Y + self.SCREEN_MIN_Y) // 2 - \
+                    Well.CELLS_Y // 2 * self.CELL_SIZE
         self.wellBbox = (
             (wellOrgX, 
              wellOrgY), 
-            (wellOrgX + Well.CELLS_X * cellSize, 
-             wellOrgY + Well.CELLS_Y * cellSize)
+            (wellOrgX + Well.CELLS_X * self.CELL_SIZE, 
+             wellOrgY + Well.CELLS_Y * self.CELL_SIZE)
          )
 
-        sidePanelWidth = ((SCREEN_MAX_X - SCREEN_MIN_X) - \
+        sidePanelWidth = ((self.SCREEN_MAX_X - self.SCREEN_MIN_X) - \
                           (self.wellBbox[1][0] - self.wellBbox[0][0])) // 4
-        sidePanelHeight = (SCREEN_MAX_Y - SCREEN_MIN_Y) // 3
+        sidePanelHeight = (self.SCREEN_MAX_Y - self.SCREEN_MIN_Y) // 3
         
-        leftPanelOrgX = (self.wellBbox[0][0] + SCREEN_MIN_X) // 2 - \
+        leftPanelOrgX = (self.wellBbox[0][0] + self.SCREEN_MIN_X) // 2 - \
                         sidePanelWidth // 2
-        rightPanelOrgX = (self.wellBbox[1][0] + SCREEN_MAX_X) // 2 - \
-                        sidePanelWidth // 2
+        rightPanelOrgX = (self.wellBbox[1][0] + self.SCREEN_MAX_X) // 2 - \
+                          sidePanelWidth // 2
         
         self.leftPanelBbox = (
             (leftPanelOrgX, 
@@ -452,31 +455,31 @@ class Game:
         self.smallFont = pygame.font.SysFont(None, 22)
         self.largeFont = pygame.font.Font(pygame.font.get_default_font(), 32)
 
-    def reset(self):
-        self.well = Well()
+    def initPage(self):
+        self.pgscreen.fill((127, 127, 127))
 
-    @property
-    def frameDelay(self):
-        return max(0, 0.5 - 0.5 * (self.well.level / 20))
+    @classmethod
+    def flipPage(cls):
+        pygame.display.flip()        
 
     def drawText(self, x, y, text, color=(255, 255, 255), font=None):
         if not font:
             font = self.smallFont
         textobj = font.render(text, True, color)
         textrect = textobj.get_rect(left=x, bottom=y)
-        self.screen.blit(textobj, textrect)
+        self.pgscreen.blit(textobj, textrect)
 
     def mapWellCoordsToScreen(self, x, y):
-        return (self.wellBbox[0][0] + x * self.cellSize,
-                self.wellBbox[0][1] + y * self.cellSize)
+        return (self.wellBbox[0][0] + x * self.CELL_SIZE,
+                self.wellBbox[0][1] + y * self.CELL_SIZE)
 
     def drawCell(self, x, y, color):
         cx, cy = self.mapWellCoordsToScreen(x, y)
         bbox = (
             (cx + 1, cy + 1),
-            (cx + self.cellSize - 1, cy + self.cellSize - 1)
+            (cx + self.CELL_SIZE - 1, cy + self.CELL_SIZE - 1)
         )
-        pygame.draw.polygon(self.screen, color, self.makeBboxVerts(bbox)) 
+        pygame.draw.polygon(self.pgscreen, color, self.makeBboxVerts(bbox)) 
 
     @classmethod
     def makeBboxVerts(cls, bbox):
@@ -487,7 +490,7 @@ class Game:
         ]
 
     def drawWellBG(self, color):
-        pygame.draw.polygon(self.screen, 
+        pygame.draw.polygon(self.pgscreen, 
                              [x // 2 for x in color], 
                              self.makeBboxVerts(self.wellBbox))
         for x in range(self.well.CELLS_X):
@@ -501,7 +504,7 @@ class Game:
     def drawLeftPanel(self, bgcolor=(50, 50, 50)):
         """Draw the score panel on the left
         """
-        pygame.draw.polygon(self.screen, 
+        pygame.draw.polygon(self.pgscreen, 
                              bgcolor, 
                              self.makeBboxVerts(self.leftPanelBbox))
         x, y = self.leftPanelBbox[0]
@@ -522,24 +525,40 @@ class Game:
             yy += 20
 
     def drawRightPanel(self, bgcolor=(50, 50, 50)):
-        pygame.draw.polygon(self.screen, 
+        pygame.draw.polygon(self.pgscreen, 
                              bgcolor, 
                              self.makeBboxVerts(self.rightPanelBbox)) 
+
+
+class Game:
+    def __init__(self):
+        """Create the draw manager, initialize the screen for drawing
+        """
+        self.well = Well()
+        self.screen = Screen(self.well)
+        self.reset()
+
+    def reset(self):
+        self.well.reset()
+
+    @property
+    def frameDelay(self):
+        return max(0, 0.5 - 0.5 * (self.well.level / 20))
 
     def loop(self):
         """Run this until the user asks to quit
         """
         # Fill the background:
-        self.screen.fill((127, 127, 127))
+        self.screen.initPage()
 
         freeFalling = False
         t = time.time()
 
-        self.drawRightPanel()
+        self.screen.drawRightPanel()
 
         while True:
-            self.drawWellBG((40, 40, 40))
-            self.drawLeftPanel()
+            self.screen.drawWellBG((40, 40, 40))
+            self.screen.drawLeftPanel()
 
             dx = 0
             drot = 0
@@ -582,18 +601,18 @@ class Game:
                 if lastEvent in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
                     freeFalling = False
                 
-            self.drawWellContents()
-            self.drawLeftPanel()
+            self.screen.drawWellContents()
+            self.screen.drawLeftPanel()
 
             # Flip the display page
-            pygame.display.flip()        
+            self.screen.flipPage()
 
             if lastEvent == Well.GAME_OVER:
                 return lastEvent
 
     def close(self):
         pygame.quit()
-        self.screen = None
+        self.pgscreen = None
 
     def askUserToRestart(self):
         self.drawText(250, SCREEN_MAX_Y - 60, 
