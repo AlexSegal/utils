@@ -404,7 +404,7 @@ class Well:
                            '%s' % repr(hit))
 
   
-class Screen:
+class GraphicDevice:
     SCREEN_MIN_X = 0
     SCREEN_MAX_X = 960
     SCREEN_MIN_Y = 0
@@ -469,12 +469,29 @@ class Screen:
         textrect = textobj.get_rect(left=x, bottom=y)
         self.pgscreen.blit(textobj, textrect)
 
-    def mapWellCoordsToScreen(self, x, y):
+    def askUser(self, msg):
+        self.drawText(250, self.SCREEN_MAX_Y - 60, 
+                      msg + ' [Y/N]', 
+                      font=self.largeFont)
+        pygame.display.flip()
+
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
+                
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_y:
+                        return True
+                    elif event.key == pygame.K_n:
+                        return False
+        
+    def mapWellCoordsToGraphicDevice(self, x, y):
         return (self.wellBbox[0][0] + x * self.CELL_SIZE,
                 self.wellBbox[0][1] + y * self.CELL_SIZE)
 
     def drawCell(self, x, y, color):
-        cx, cy = self.mapWellCoordsToScreen(x, y)
+        cx, cy = self.mapWellCoordsToGraphicDevice(x, y)
         bbox = (
             (cx + 1, cy + 1),
             (cx + self.CELL_SIZE - 1, cy + self.CELL_SIZE - 1)
@@ -529,13 +546,49 @@ class Screen:
                              bgcolor, 
                              self.makeBboxVerts(self.rightPanelBbox)) 
 
+    def getUserInput(self):
+        result = {
+            'device': 'keyboard',
+            'command': None,
+            'dx': 0,
+            'drot': 0,
+            'dlevel': 0,
+            'free_fall': False,
+        }
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                result['command'] = 'quit'
+                return result
+            
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    result['free_fall'] = True
+                    result['dx'] = result['drot'] = 0
+                    return result
+                
+                elif event.key == pygame.K_KP_PLUS:
+                    result['dlevel'] += 1
+                elif event.key == pygame.K_KP_MINUS:
+                    result['dlevel'] -= 1
+                else:
+                    if event.key == pygame.K_LEFT:
+                        result['dx'] -= 1
+                    if event.key == pygame.K_RIGHT:
+                        result['dx'] += 1
+                    if event.key == pygame.K_UP:
+                        result['drot'] -= 1
+                    if event.key == pygame.K_DOWN:
+                        result['drot'] += 1
+
+        return result
 
 class Game:
     def __init__(self):
         """Create the draw manager, initialize the screen for drawing
         """
         self.well = Well()
-        self.screen = Screen(self.well)
+        self.gdevice = GraphicDevice(self.well)
         self.reset()
 
     def reset(self):
@@ -551,62 +604,59 @@ class Game:
         """Run this until the user asks to quit
         """
         # Fill the background:
-        self.screen.initPage()
+        self.gdevice.initPage()
 
         freeFalling = False
         t = time.time()
 
-        self.screen.drawRightPanel()
-
         while True:
-            self.screen.drawWellBG((40, 40, 40))
-            self.screen.drawLeftPanel()
+            self.gdevice.drawWellBG((40, 40, 40))
+            self.gdevice.drawLeftPanel()
+            self.gdevice.drawRightPanel()
 
             dx = 0
             drot = 0
             lastEvent = None
             
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return pygame.QUIT
-                
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
-                        freeFalling = True
-                        dx = 0
-                        drot = 0 
-                    elif event.key == pygame.K_KP_PLUS:
-                        self.well.level += 1
-                    elif event.key == pygame.K_KP_MINUS:
-                        self.well.level = max(1, self.well.level - 1)
-                    else:
-                        if event.key == pygame.K_LEFT:
-                            dx -= 1
-                        if event.key == pygame.K_RIGHT:
-                            dx += 1
-                        if event.key == pygame.K_UP:
-                            drot -= 1
-                        if event.key == pygame.K_DOWN:
-                            drot += 1
+            userInput = self.gdevice.getUserInput()
+
+            if userInput['command'] == 'quit':
+                return 'quit'
+            
+            freeFalling += userInput['free_fall']
+
+            dx += userInput['dx']
+            drot += userInput['drot']
+            
+            dlevel = userInput['dlevel']
+
+            if dlevel > 0:
+                self.well.level += dlevel
+            elif dlevel < 0:
+                self.well.level = max(1, self.well.level - 1)
 
             # Check 1: only consider user input: move sideways or rotate:
             # Even if we hit something here, it would not cause sharding
             # of the piece!
             lastEvent = self.well.advance(dx, 0, drot)
                     
-            # Check 2: apply dy=1
-            if freeFalling or time.time() > t + self.fallPeriod:
-                t = time.time()
-                lastEvent = self.well.advance(dx=0, dy=1, drot=0)
+            if lastEvent == Well.GAME_OVER:
+                # Nothing really to do here...
+                pass
+            else:
+                # Check 2: apply dy=1
+                if freeFalling or time.time() > t + self.fallPeriod:
+                    t = time.time()
+                    lastEvent = self.well.advance(dx=0, dy=1, drot=0)
 
-                if lastEvent in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
-                    freeFalling = False
+                    if lastEvent in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
+                        freeFalling = False
                 
-            self.screen.drawWellContents()
-            self.screen.drawLeftPanel()
+            self.gdevice.drawWellContents()
+            self.gdevice.drawLeftPanel()
 
             # Flip the display page
-            self.screen.flipPage()
+            self.gdevice.flipPage()
 
             if lastEvent == Well.GAME_OVER:
                 return lastEvent
@@ -616,27 +666,14 @@ class Game:
         self.pgscreen = None
 
     def askUserToRestart(self):
-        self.drawText(250, SCREEN_MAX_Y - 60, 
-                      'Game Over. Restart? [Y/N]',
-                      font=self.largeFont)
-        pygame.display.flip()
+        return self.gdevice.askUser('Game Over. Restart?')
 
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return False
-                
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_y:
-                        return True
-                    elif event.key == pygame.K_n:
-                        return False
 
 def main():
     game = Game()
 
     while True:
-        if game.loop() == pygame.QUIT:
+        if game.loop() == 'quit':
             break
 
         if game.askUserToRestart():
