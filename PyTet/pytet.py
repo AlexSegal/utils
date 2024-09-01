@@ -538,7 +538,7 @@ class Game:
         self.drawRightPanel()
 
         while True:
-            self.drawWellBG((30, 30, 30))
+            self.drawWellBG((40, 40, 40))
             self.drawLeftPanel()
 
             dx = 0
