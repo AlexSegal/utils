@@ -406,7 +406,7 @@ SCREEN_MAX_X = 960
 SCREEN_MIN_Y = 0
 SCREEN_MAX_Y = 720
 
-class Canvas:
+class Game:
     def __init__(self, cellSize=24):
         """Create the draw manager, initialize the screen for drawing
         """
@@ -466,12 +466,12 @@ class Canvas:
         textrect = textobj.get_rect(left=x, bottom=y)
         self.screen.blit(textobj, textrect)
 
-    def mapCellCoordsToCanvas(self, x, y):
+    def mapWellCoordsToScreen(self, x, y):
         return (self.wellBbox[0][0] + x * self.cellSize,
                 self.wellBbox[0][1] + y * self.cellSize)
 
     def drawCell(self, x, y, color):
-        cx, cy = self.mapCellCoordsToCanvas(x, y)
+        cx, cy = self.mapWellCoordsToScreen(x, y)
         bbox = (
             (cx + 1, cy + 1),
             (cx + self.cellSize - 1, cy + self.cellSize - 1)
@@ -543,6 +543,7 @@ class Canvas:
 
             dx = 0
             drot = 0
+            lastEvent = None
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -571,17 +572,14 @@ class Canvas:
                 # Check 1: only consider user input: move sideways or rotate:
                 # Even if we hit something here, it would not cause sharding
                 # of the piece!
-                hit = self.well.advance(dx, 0, drot)
+                lastEvent = self.well.advance(dx, 0, drot)
                     
-                if hit == Well.GAME_OVER:
-                    return
-
             # Check 2: apply dy=1
             if freeFalling or time.time() > t + self.frameDelay:
                 t = time.time()
-                hit = self.well.advance(dx=0, dy=1, drot=0)
+                lastEvent = self.well.advance(dx=0, dy=1, drot=0)
 
-                if hit in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
+                if lastEvent in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
                     freeFalling = False
                 
             self.drawWellContents()
@@ -589,6 +587,9 @@ class Canvas:
 
             # Flip the display page
             pygame.display.flip()        
+
+            if lastEvent == Well.GAME_OVER:
+                return lastEvent
 
     def close(self):
         pygame.quit()
@@ -612,18 +613,18 @@ class Canvas:
                         return False
 
 def main():
-    canvas = Canvas()
+    game = Game()
 
     while True:
-        if canvas.loop() == pygame.QUIT:
+        if game.loop() == pygame.QUIT:
             break
 
-        if canvas.askUserToRestart():
-            canvas.reset()
+        if game.askUserToRestart():
+            game.reset()
         else:
             break
         
-    canvas.close()
+    game.close()
 
 if __name__ == '__main__':
     try:
