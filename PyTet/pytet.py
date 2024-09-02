@@ -233,7 +233,7 @@ class Well:
             'piece': piece,
             'color': color,
             'x': self.CELLS_X // 2 - piece.bboxsize // 2,
-            'y': 1 - piece.bboxsize,
+            'y': -piece.bboxsize,
             'rot': 0
         }
 
