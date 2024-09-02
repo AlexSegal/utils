@@ -220,19 +220,26 @@ class Well:
 
     def reset(self):
         self.shards = {}
-        self.curPieceData = {}
         self.score = 0
         self.nrows = 0
         self.level = 1
+        self.curPieceData = {}
+        self.nextPieceData = self.makeNextPiece()
 
-    def addPiece(self, piece, color=(255, 255, 255)):
-        self.curPieceData = {
+    def makeNextPiece(self):
+        piece = Piece.makeRandom()
+        color = Piece.makeRandomColor(s=(0.75, 1), v=(0.8, 0.9))
+        self.nextPieceData = {
             'piece': piece,
             'color': color,
             'x': self.CELLS_X // 2 - piece.bboxsize // 2,
             'y': 1 - piece.bboxsize,
             'rot': 0
         }
+
+    def dropNextPiece(self):
+        self.curPieceData = self.nextPieceData
+        self.makeNextPiece()
 
     def checkCollision(self, dx, dy, drot):
         """Check the hypotetical/future position of the piece and 
@@ -352,19 +359,14 @@ class Well:
 
         return result
 
-    def advance(self, dx=0, dy=1, drot=0, nextPiece=None, nextPieceColor=None):
+    def advance(self, dx=0, dy=1, drot=0):
         """Advance the time, attempt to move the falling piece 1 cell down, 
         and do whatever is necessary after that, e.g. shard a new piece and 
         collapse the shards etc.
         Return the hit event
         """
         if not self.curPieceData:
-            if not nextPiece:
-                nextPiece = Piece.makeRandom()
-            
-            color = nextPieceColor or Piece.makeRandomColor(s=(0.75, 1),
-                                                              v=(0.8, 0.9))
-            self.addPiece(nextPiece, color)
+            self.dropNextPiece()
 
             if self.checkCollision(dx=0, dy=0, drot=0) != self.HIT_NONE:
                 # Well is full up to the brim, stop the game!
