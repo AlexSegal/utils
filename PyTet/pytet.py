@@ -11,7 +11,6 @@ except ImportError as e:
     print('%s. Please install it: "pip install pygame"' % e)
     sys.exit(1)
 
-
 class Piece:
     CELLMAPS = {
         'I': [
@@ -158,6 +157,9 @@ class Piece:
         return '%s(%r)' % (type(self).__name__, self.prototype)
 
     def getCellMap(self, rot=0):
+        """Get the cell map for the piece, given its rotation angle (multiple
+        of 90-degree)
+        """
         result = self.rotCellMaps[rot % 4]
 
         if not isinstance(result, int):
@@ -190,6 +192,8 @@ class Piece:
 
     @property
     def value(self):
+        """Get the "value" of the piece, for keeping the score.
+        """
         return self.PIECE_VALUES[self.prototype]
     
     @classmethod
@@ -206,6 +210,8 @@ class Piece:
 
 
 class Well:
+    """The well in which the pieces are falling
+    """
     CELLS_X = 10
     CELLS_Y = 20
 
@@ -219,6 +225,8 @@ class Well:
         self.reset()
 
     def reset(self):
+        """Full reset of the well
+        """
         self.shards = {}
         self.score = 0
         self.nrows = 0
@@ -228,6 +236,9 @@ class Well:
 
     @classmethod
     def makeNextPieceAndColor(cls):
+        """Prepare and return a 2-element tuple: the next piece and its color,
+        randomly generated.
+        """
         piece = Piece.makeRandom()
         color = Piece.makeRandomColor(s=(0.75, 1), v=(0.8, 0.9))
         return piece, color
@@ -277,6 +288,8 @@ class Well:
                else self.HIT_NONE
 
     def shardPiece(self):
+        """Turn the current piece into shards
+        """
         if not self.curPieceData:
             return 0
         
@@ -471,6 +484,8 @@ class GraphicDevice:
         pygame.display.flip()        
 
     def drawText(self, x, y, text, color=(255, 255, 255), font=None):
+        """Generic draw text at the given coordinates (left, bottom)
+        """
         if not font:
             font = self.smallFont
         textobj = font.render(text, True, color)
@@ -478,6 +493,8 @@ class GraphicDevice:
         self.pgscreen.blit(textobj, textrect)
 
     def askUser(self, msg):
+        """Draw a text message, wait for the user's Y/N input
+        """
         self.drawText(250, self.SCREEN_MAX_Y - 60, 
                       msg + ' [Y/N]', 
                       font=self.largeFont)
@@ -495,10 +512,14 @@ class GraphicDevice:
                         return False
         
     def mapWellCoordsToDevice(self, x, y):
+        """Map well coords to device pixels
+        """
         return (self.wellBbox[0][0] + x * self.CELL_SIZE,
                 self.wellBbox[0][1] + y * self.CELL_SIZE)
 
     def mapNextPanelCoordsToDevice(self, x, y):
+        """Map piece coords to device pixels
+        """
         piece = self.well.nextPieceAndColor[0]
         halfBbox = piece.bboxsize * self.CELL_SIZE // 2
 
@@ -539,6 +560,8 @@ class GraphicDevice:
         ]
 
     def drawWellBG(self, color):
+        """Draw the BG of the well
+        """
         pygame.draw.polygon(self.pgscreen, 
                              [x // 2 for x in color], 
                              self.makeBboxVerts(self.wellBbox))
@@ -547,6 +570,8 @@ class GraphicDevice:
                 self.drawWellCell(x, y, color)
 
     def drawWellContents(self):
+        """Draw the contents (piece and shards) of the well
+        """
         for x, y, color, is_piece in self.well.makeCellsForDrawing():
             self.drawWellCell(x, y, color)
 
@@ -712,6 +737,8 @@ class Game:
 
 
 def main():
+    random.seed(time.time())
+
     game = Game()
 
     while True:
