@@ -224,22 +224,25 @@ class Well:
         self.nrows = 0
         self.level = 1
         self.curPieceData = {}
-        self.nextPieceData = self.makeNextPiece()
+        self.nextPieceAndColor = self.makeNextPieceAndColor()
 
-    def makeNextPiece(self):
+    @classmethod
+    def makeNextPieceAndColor(cls):
         piece = Piece.makeRandom()
         color = Piece.makeRandomColor(s=(0.75, 1), v=(0.8, 0.9))
-        self.nextPieceData = {
+        return piece, color
+
+    def dropNextPiece(self):
+        piece, color = self.nextPieceAndColor
+
+        self.curPieceData = {
             'piece': piece,
             'color': color,
             'x': self.CELLS_X // 2 - piece.bboxsize // 2,
-            'y': -piece.bboxsize,
+            'y': -piece.bboxsize + 1,
             'rot': 0
         }
-
-    def dropNextPiece(self):
-        self.curPieceData = self.nextPieceData
-        self.makeNextPiece()
+        self.nextPieceAndColor = self.makeNextPieceAndColor()
 
     def checkCollision(self, dx, dy, drot):
         """Check the hypotetical/future position of the piece and 
@@ -447,11 +450,14 @@ class GraphicDevice:
              wellOrgY + sidePanelHeight)
         )
 
+        rightPanelWidth = self.CELL_SIZE * 6
+        rightPanelHeight = self.CELL_SIZE * 7
+
         self.rightPanelBbox = (
             (rightPanelOrgX, 
              wellOrgY),
-            (rightPanelOrgX + sidePanelWidth,
-             wellOrgY + sidePanelHeight)
+            (rightPanelOrgX + rightPanelWidth,
+             wellOrgY + rightPanelHeight)
         )
 
         self.smallFont = pygame.font.SysFont(None, 22)
@@ -488,17 +494,41 @@ class GraphicDevice:
                     elif event.key == pygame.K_n:
                         return False
         
-    def mapWellCoordsToGraphicDevice(self, x, y):
+    def mapWellCoordsToDevice(self, x, y):
         return (self.wellBbox[0][0] + x * self.CELL_SIZE,
                 self.wellBbox[0][1] + y * self.CELL_SIZE)
 
-    def drawCell(self, x, y, color):
-        cx, cy = self.mapWellCoordsToGraphicDevice(x, y)
+    def mapNextPanelCoordsToDevice(self, x, y):
+        piece = self.well.nextPieceAndColor[0]
+        halfBbox = piece.bboxsize * self.CELL_SIZE // 2
+
+        dx = (self.rightPanelBbox[0][0] + self.rightPanelBbox[1][0]) // 2 - halfBbox
+        dy = (self.rightPanelBbox[0][1] + self.rightPanelBbox[1][1]) // 2 - halfBbox
+        #dy += 20
+
+        return (x * self.CELL_SIZE + dx, y * self.CELL_SIZE + dy)
+
+    def _drawDeviceCell(self, x, y, color):
+        """Draw the cell box, using the device's x y coordinates of the top 
+        left corner of the cell, and self.CELL_SIZE as its width and height.
+        TODO: make it look nicer!
+        """
         bbox = (
-            (cx + 1, cy + 1),
-            (cx + self.CELL_SIZE - 1, cy + self.CELL_SIZE - 1)
+            (x + 1, y + 1),
+            (x + self.CELL_SIZE - 1, y + self.CELL_SIZE - 1)
         )
-        pygame.draw.polygon(self.pgscreen, color, self.makeBboxVerts(bbox)) 
+        verts = self.makeBboxVerts(bbox)
+        return pygame.draw.polygon(self.pgscreen, color, verts) 
+        
+    def drawWellCell(self, x, y, color):
+        """Draw the cell in the well, using its well coordinates 
+        """
+        self._drawDeviceCell(*self.mapWellCoordsToDevice(x, y), color)
+
+    def drawNextPanelCell(self, x, y, color):
+        """Draw the cell in the "next" panel using its piece coordinates 
+        """
+        self._drawDeviceCell(*self.mapNextPanelCoordsToDevice(x, y), color)
 
     @classmethod
     def makeBboxVerts(cls, bbox):
@@ -514,11 +544,11 @@ class GraphicDevice:
                              self.makeBboxVerts(self.wellBbox))
         for x in range(self.well.CELLS_X):
             for y in range(self.well.CELLS_Y):
-                self.drawCell(x, y, color)
+                self.drawWellCell(x, y, color)
 
     def drawWellContents(self):
         for x, y, color, is_piece in self.well.makeCellsForDrawing():
-            self.drawCell(x, y, color)
+            self.drawWellCell(x, y, color)
 
     def drawLeftPanel(self, bgcolor=(50, 50, 50)):
         """Draw the score panel on the left
@@ -547,6 +577,16 @@ class GraphicDevice:
         pygame.draw.polygon(self.pgscreen, 
                              bgcolor, 
                              self.makeBboxVerts(self.rightPanelBbox)) 
+
+        x, y = self.rightPanelBbox[0]
+        label = 'Next:'
+        self.drawText(x+10, y+35, label, (200, 200, 200), self.smallFont)
+
+        # Draw next piece:        
+        piece, color = self.well.nextPieceAndColor
+
+        for (x, y) in piece.getCellCoords(0, 0, 0):
+            self.drawNextPanelCell(x, y, color)
 
     def getUserInput(self):
         result = {
