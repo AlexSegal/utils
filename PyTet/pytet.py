@@ -5,6 +5,8 @@ import time
 import random
 import colorsys
 
+import pygame.draw
+
 try:
     import pygame
 except ImportError as e:
@@ -529,22 +531,49 @@ class GraphicDevice:
 
         return (x * self.CELL_SIZE + dx, y * self.CELL_SIZE + dy)
 
-    def _drawDeviceCell(self, x, y, color):
+    def _drawDeviceCell(self, x, y, color, bg=False):
         """Draw the cell box, using the device's x y coordinates of the top 
         left corner of the cell, and self.CELL_SIZE as its width and height.
         TODO: make it look nicer!
         """
-        bbox = (
-            (x + 1, y + 1),
-            (x + self.CELL_SIZE - 1, y + self.CELL_SIZE - 1)
-        )
-        verts = self.makeBboxVerts(bbox)
-        return pygame.draw.polygon(self.pgscreen, color, verts) 
+        rect = (x + 1, y + 1, self.CELL_SIZE - 1, self.CELL_SIZE - 1)
+        pygame.draw.rect(self.pgscreen, color, rect)
+
+        if bg:
+            return
         
-    def drawWellCell(self, x, y, color):
+        # TODO: add some fancy 3D effects: highlights, shadows etc
+        def lerp(a, b, mix):
+            return a + (b - a) * mix
+
+        def clerp(color1, color2, blend):
+            return [lerp(a, b, blend) for a, b in zip(color1, color2)]
+
+        GAP = 2
+
+        lt = (x + GAP,                      y + GAP)
+        lb = (x + GAP,                      y + self.CELL_SIZE - GAP)
+        rt = (x + self.CELL_SIZE - GAP,     y + GAP)
+        rb = (x + self.CELL_SIZE - GAP,     y + self.CELL_SIZE - GAP)
+        lm = (x + self.CELL_SIZE // 4,      y + self.CELL_SIZE // 3) 
+        rm = (x + self.CELL_SIZE // 4 * 3,  y + self.CELL_SIZE // 3)
+
+        white = (255,) * 3
+        black = (0,) * 3 
+        tc = clerp(color, white, 0.08)
+        bc = clerp(color, black, 0.12)
+        rc = clerp(color, black, 0.24)
+        lc = clerp(color, white, 0.24)
+
+        pygame.draw.polygon(self.pgscreen, tc, (lt, rt, rm, lm))
+        pygame.draw.polygon(self.pgscreen, bc, (lb, rb, rm, lm))
+        pygame.draw.polygon(self.pgscreen, lc, (lt, lm, lb))
+        pygame.draw.polygon(self.pgscreen, rc, (rt, rb, rm))
+        
+    def drawWellCell(self, x, y, color, bg=False):
         """Draw the cell in the well, using its well coordinates 
         """
-        self._drawDeviceCell(*self.mapWellCoordsToDevice(x, y), color)
+        self._drawDeviceCell(*self.mapWellCoordsToDevice(x, y), color, bg)
 
     def drawNextPanelCell(self, x, y, color):
         """Draw the cell in the "next" panel using its piece coordinates 
@@ -552,22 +581,21 @@ class GraphicDevice:
         self._drawDeviceCell(*self.mapNextPanelCoordsToDevice(x, y), color)
 
     @classmethod
-    def makeBboxVerts(cls, bbox):
+    def makePyRect(cls, bbox):
         minx, miny = bbox[0]
-        maxx, maxy = bbox[1]
-        return [
-            (minx, miny), (maxx, miny), (maxx, maxy), (minx, maxy)
-        ]
+        width = bbox[1][0] - minx
+        height = bbox[1][1] - miny
+        return pygame.Rect(minx, miny, width, height)
 
     def drawWellBG(self, color):
         """Draw the BG of the well
         """
-        pygame.draw.polygon(self.pgscreen, 
-                             [x // 2 for x in color], 
-                             self.makeBboxVerts(self.wellBbox))
+        pygame.draw.rect(self.pgscreen, 
+                          [x // 2 for x in color], 
+                          self.makePyRect(self.wellBbox))
         for x in range(self.well.CELLS_X):
             for y in range(self.well.CELLS_Y):
-                self.drawWellCell(x, y, color)
+                self.drawWellCell(x, y, color, True)
 
     def drawWellContents(self):
         """Draw the contents (piece and shards) of the well
@@ -578,9 +606,9 @@ class GraphicDevice:
     def drawLeftPanel(self, bgcolor=(50, 50, 50)):
         """Draw the score panel on the left
         """
-        pygame.draw.polygon(self.pgscreen, 
-                             bgcolor, 
-                             self.makeBboxVerts(self.leftPanelBbox))
+        pygame.draw.rect(self.pgscreen, 
+                          bgcolor, 
+                          self.makePyRect(self.leftPanelBbox))
         x, y = self.leftPanelBbox[0]
 
         data = (
@@ -599,9 +627,9 @@ class GraphicDevice:
             yy += 20
 
     def drawRightPanel(self, bgcolor=(50, 50, 50)):
-        pygame.draw.polygon(self.pgscreen, 
-                             bgcolor, 
-                             self.makeBboxVerts(self.rightPanelBbox)) 
+        pygame.draw.rect(self.pgscreen, 
+                          bgcolor, 
+                          self.makePyRect(self.rightPanelBbox)) 
 
         x, y = self.rightPanelBbox[0]
         label = 'Next:'
