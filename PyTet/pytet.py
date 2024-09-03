@@ -662,29 +662,32 @@ class GraphicDevice:
             if event.type == pygame.QUIT:
                 result['command'] = 'quit'
                 return result
-            
+
+            # For state toggle keys it's easier to treat them as "text" events:
+            if event.type == pygame.TEXTINPUT and event.text.lower() == 'p':
+                result['command'] = 'pause'
+                return result
+
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
+                key = event.key
+
+                if key == pygame.K_SPACE:
                     result['free_fall'] = True
                     result['dx'] = result['drot'] = 0
                     return result
                 
-                elif event.key == pygame.K_KP_PLUS:
+                elif key == pygame.K_KP_PLUS:
                     result['dlevel'] += 1
-                elif event.key == pygame.K_KP_MINUS:
+                elif key == pygame.K_KP_MINUS:
                     result['dlevel'] -= 1
-                elif event.key == pygame.K_p:
-                    result['command'] = 'pause'
-                elif event.key == pygame.K_o:
-                    result['command'] = 'unpause'
                 else:
-                    if event.key in (pygame.K_LEFT, pygame.K_a):
+                    if key in (pygame.K_LEFT, pygame.K_a):
                         result['dx'] -= 1
-                    if event.key in (pygame.K_RIGHT, pygame.K_d):
+                    if key in (pygame.K_RIGHT, pygame.K_d):
                         result['dx'] += 1
-                    if event.key in (pygame.K_UP, pygame.K_w):
+                    if key in (pygame.K_UP, pygame.K_w):
                         result['drot'] -= 1
-                    if event.key in (pygame.K_DOWN, pygame.K_s):
+                    if key in (pygame.K_DOWN, pygame.K_s):
                         result['drot'] += 1
 
         return result
@@ -731,9 +734,7 @@ class Game:
                 return 'quit'
 
             if userInput['command'] == 'pause':
-                pause = True
-            elif userInput['command'] == 'unpause':
-                pause = False
+                pause = not pause
 
             if pause:
                 time.sleep(0.5)
