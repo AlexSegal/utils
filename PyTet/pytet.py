@@ -542,15 +542,20 @@ class GraphicDevice:
         if bg:
             return
         
-        # TODO: add some fancy 3D effects: highlights, shadows etc
+        # Add the cheap "3D" effect - inspired by the Soviet concrete fence ;)
         def lerp(a, b, mix):
+            """Basic linear interpolation between 2 int/float values
+            """
             return a + (b - a) * mix
 
         def clerp(color1, color2, blend):
+            """Basic linear interpolation between 2 color values
+            """
             return [lerp(a, b, blend) for a, b in zip(color1, color2)]
 
         GAP = 2
 
+        # 6 points to make the 4 polygons of the 3D pattern:
         lt = (x + GAP,                      y + GAP)
         lb = (x + GAP,                      y + self.CELL_SIZE - GAP)
         rt = (x + self.CELL_SIZE - GAP,     y + GAP)
@@ -558,8 +563,10 @@ class GraphicDevice:
         lm = (x + self.CELL_SIZE // 4,      y + self.CELL_SIZE // 3) 
         rm = (x + self.CELL_SIZE // 4 * 3,  y + self.CELL_SIZE // 3)
 
-        white = (255,) * 3
+        # 4 "shaded" colors, one per polygon, made by mixing the main color
+        # with white (for highlights) or black (for shades):
         black = (0,) * 3 
+        white = (255,) * 3
         tc = clerp(color, white, 0.08)
         bc = clerp(color, black, 0.12)
         rc = clerp(color, black, 0.24)
