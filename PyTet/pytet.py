@@ -673,14 +673,18 @@ class GraphicDevice:
                     result['dlevel'] += 1
                 elif event.key == pygame.K_KP_MINUS:
                     result['dlevel'] -= 1
+                elif event.key == pygame.K_p:
+                    result['command'] = 'pause'
+                elif event.key == pygame.K_o:
+                    result['command'] = 'unpause'
                 else:
-                    if event.key == pygame.K_LEFT:
+                    if event.key in (pygame.K_LEFT, pygame.K_a):
                         result['dx'] -= 1
-                    if event.key == pygame.K_RIGHT:
+                    if event.key in (pygame.K_RIGHT, pygame.K_d):
                         result['dx'] += 1
-                    if event.key == pygame.K_UP:
+                    if event.key in (pygame.K_UP, pygame.K_w):
                         result['drot'] -= 1
-                    if event.key == pygame.K_DOWN:
+                    if event.key in (pygame.K_DOWN, pygame.K_s):
                         result['drot'] += 1
 
         return result
@@ -709,6 +713,7 @@ class Game:
         self.gdevice.initPage()
 
         freeFalling = False
+        pause = False
         t = time.time()
 
         while True:
@@ -724,7 +729,16 @@ class Game:
 
             if userInput['command'] == 'quit':
                 return 'quit'
-            
+
+            if userInput['command'] == 'pause':
+                pause = True
+            elif userInput['command'] == 'unpause':
+                pause = False
+
+            if pause:
+                time.sleep(0.5)
+                continue
+
             freeFalling += userInput['free_fall']
 
             dx += userInput['dx']
