@@ -218,9 +218,10 @@ class Well:
     CELLS_Y = 20
 
     HIT_NONE = 0
-    HIT_SIDES = 1
-    HIT_BOTTOM = 2
-    HIT_SHARDS = 3
+    HIT_LEFT_SIDE = 1
+    HIT_RIGHT_SIDE = 2
+    HIT_BOTTOM = 3
+    HIT_SHARDS = 4
     GAME_OVER = 10
 
     def __init__(self):
@@ -265,7 +266,7 @@ class Well:
         if not self.curPieceData:
             return False
 
-        assert(abs(dx) <= 1)
+        #assert(abs(dx) <= 1)   # we might need more for bouncing off the sides!
         assert(abs(dy) <= 1)
         assert(abs(drot) <= 1)
 
@@ -279,8 +280,11 @@ class Well:
         
         # Check against wells boundaries:
         for x, y in cellCoords:
-            if x < 0 or x >= self.CELLS_X:
-                return self.HIT_SIDES
+            if x < 0:
+                return self.HIT_LEFT_SIDE
+
+            if x >= self.CELLS_X:
+                return self.HIT_RIGHT_SIDE
 
             if y >= self.CELLS_Y:
                 return self.HIT_BOTTOM
@@ -395,7 +399,7 @@ class Well:
         
         hit = self.checkCollision(dx=dx, dy=dy, drot=drot)
 
-        if hit == self.HIT_SIDES:
+        if hit in (self.HIT_LEFT_SIDE, self.HIT_RIGHT_SIDE):
             return hit
 
         if hit == self.HIT_NONE:
@@ -752,10 +756,27 @@ class Game:
             elif dlevel < 0:
                 self.well.level = max(1, self.well.level - 1)
 
-            # Check 1: only consider user input: move sideways or rotate:
-            # Even if we hit something here, it would not cause sharding
+            # Check 1: make sure we can rotate the piece. If we hit a side after
+            # that, we try moving the piece sideways by 1 or 2 cells:
+            hit = self.well.checkCollision(0, 0, drot)
+            
+            if hit == Well.HIT_LEFT_SIDE:
+                for i in range(1, 3, 1):
+                    # Bounce, until we are withing the well:
+                    if self.well.advance(i, 0, drot) != Well.HIT_LEFT_SIDE:
+                        break
+            elif hit == Well.HIT_RIGHT_SIDE:
+                for i in range(1, 3, 1):
+                    # Bounce, until we are withing the well:
+                    if self.well.advance(-i, 0, drot) != Well.HIT_RIGHT_SIDE:
+                        break
+            else:
+                self.well.advance(0, 0, drot)
+ 
+            # Check 2: only consider moving sideways:
+            # Even if we hit something here, it should not cause sharding
             # of the piece!
-            lastEvent = self.well.advance(dx, 0, drot)
+            lastEvent = self.well.advance(dx, 0, 0)
                     
             if lastEvent == Well.GAME_OVER:
                 # Nothing really to do here...
