@@ -307,7 +307,7 @@ class Well:
 
         for x, y in piece.getCellCoords(x, y, rot):
             if x >= 0 and x < self.CELLS_X and \
-               y >= 0 and y < self.CELLS_Y:
+               y < self.CELLS_Y:
                 self.shards[(x, y)] = color
 
         self.curPieceData = {}
@@ -377,6 +377,11 @@ class Well:
 
         # Shards:
         for (x, y), color in sorted(self.shards.items()):
+            # Never draw stuff outside the well: 
+            if x < 0 or x >= self.CELLS_X or \
+               y < 0 or y >= self.CELLS_Y:
+                continue
+
             result.append((x, y, color, False))
 
         return result
@@ -759,36 +764,39 @@ class Game:
             # Check 1: make sure we can rotate the piece. If we hit a side after
             # that, we try moving the piece sideways by 1 or 2 cells:
             hit = self.well.checkCollision(0, 0, drot)
-            
-            if hit == Well.HIT_LEFT_SIDE:
-                for i in range(1, 3, 1):
-                    # Bounce, until we are withing the well:
-                    if self.well.advance(i, 0, drot) != Well.HIT_LEFT_SIDE:
-                        break
-            elif hit == Well.HIT_RIGHT_SIDE:
-                for i in range(1, 3, 1):
-                    # Bounce, until we are withing the well:
-                    if self.well.advance(-i, 0, drot) != Well.HIT_RIGHT_SIDE:
-                        break
-            else:
-                self.well.advance(0, 0, drot)
- 
-            # Check 2: only consider moving sideways:
-            # Even if we hit something here, it should not cause sharding
-            # of the piece!
-            lastEvent = self.well.advance(dx, 0, 0)
-                    
-            if lastEvent == Well.GAME_OVER:
-                # Nothing really to do here...
-                pass
-            else:
-                # Check 2: apply dy=1
-                if freeFalling or time.time() > t + self.fallPeriod:
-                    t = time.time()
-                    lastEvent = self.well.advance(dx=0, dy=1, drot=0)
 
-                    if lastEvent in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
-                        freeFalling = False
+            if hit == Well.HIT_SHARDS:
+                lastEvent = Well.GAME_OVER
+            else:
+                if hit == Well.HIT_LEFT_SIDE:
+                    for i in range(1, 3, 1):
+                        # Bounce, until we are withing the well:
+                        if self.well.advance(i, 0, drot) != Well.HIT_LEFT_SIDE:
+                            break
+                elif hit == Well.HIT_RIGHT_SIDE:
+                    for i in range(1, 3, 1):
+                        # Bounce, until we are withing the well:
+                        if self.well.advance(-i, 0, drot) != Well.HIT_RIGHT_SIDE:
+                            break
+                else:
+                    self.well.advance(0, 0, drot)
+     
+                # Check 2: only consider moving sideways:
+                # Even if we hit something here, it should not cause sharding
+                # of the piece!
+                lastEvent = self.well.advance(dx, 0, 0)
+                        
+                if lastEvent == Well.GAME_OVER:
+                    # Nothing really to do here...
+                    pass
+                else:
+                    # Check 2: apply dy=1
+                    if freeFalling or time.time() > t + self.fallPeriod:
+                        t = time.time()
+                        lastEvent = self.well.advance(dx=0, dy=1, drot=0)
+
+                        if lastEvent in (Well.HIT_BOTTOM, Well.HIT_SHARDS):
+                            freeFalling = False
                 
             self.gdevice.drawWellContents()
             self.gdevice.drawLeftPanel()
