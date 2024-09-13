@@ -1,4 +1,6 @@
 #!/bin/env python
+"""Quick and dirty implementation of Tetris in Python. 
+"""
 
 import sys
 import time
