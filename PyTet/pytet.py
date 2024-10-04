@@ -5,8 +5,6 @@ import time
 import random
 import colorsys
 
-import pygame.draw
-
 try:
     import pygame
 except ImportError as e:
