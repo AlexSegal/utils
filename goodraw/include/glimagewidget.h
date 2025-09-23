@@ -33,6 +33,8 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
 
 private:
+    void updateAspectScale(); // Calculate aspect ratio correction
+    
     QOpenGLShaderProgram program;
     QOpenGLTexture* _m_tex = nullptr;
     HalfImage imgData;
@@ -46,6 +48,7 @@ private:
     CropTransform crop;
     bool rotating = false;
     bool showGrid = false;
+    QVector2D aspectScale = {1.0f, 1.0f}; // Aspect ratio correction
 
     GLuint vao = 0;
     GLuint vbo = 0;

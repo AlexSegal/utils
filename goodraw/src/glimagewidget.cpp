@@ -78,6 +78,7 @@ void GLImageWidget::initializeGL() {
 
 void GLImageWidget::resizeGL(int w, int h) {
     glViewport(0, 0, w, h);
+    updateAspectScale(); // Recalculate aspect when widget resizes
 }
 
 void GLImageWidget::setImage(const HalfImage &img) {
@@ -110,6 +111,7 @@ void GLImageWidget::setImage(const HalfImage &img) {
         return;
     }
 
+    updateAspectScale(); // Calculate aspect for new image
     update();
 }
 
@@ -156,6 +158,7 @@ void GLImageWidget::paintGL() {
     program.setUniformValue("cropCenter", QVector2D(crop.centerX,crop.centerY));
     program.setUniformValue("cropSize", QVector2D(crop.width,crop.height));
     program.setUniformValue("rotation", crop.rotation);
+    program.setUniformValue("aspectScale", aspectScale);
     program.setUniformValue("showGrid", showGrid);
 
     glBindVertexArray(vao);
@@ -212,4 +215,22 @@ bool GLImageWidget::exportImage(const QString &filename){
     fbo.release();
 
     return img.save(filename);
+}
+
+void GLImageWidget::updateAspectScale() {
+    if (!_m_tex || imgData.width == 0 || imgData.height == 0) {
+        aspectScale = QVector2D(1.0f, 1.0f);
+        return;
+    }
+
+    float widgetAspect = static_cast<float>(width()) / static_cast<float>(height());
+    float imageAspect = static_cast<float>(imgData.width) / static_cast<float>(imgData.height);
+
+    if (imageAspect > widgetAspect) {
+        // Image is wider than widget - fit to width, scale down height
+        aspectScale = QVector2D(1.0f, widgetAspect / imageAspect);
+    } else {
+        // Image is taller than widget - fit to height, scale down width  
+        aspectScale = QVector2D(imageAspect / widgetAspect, 1.0f);
+    }
 }

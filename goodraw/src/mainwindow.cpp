@@ -9,6 +9,7 @@
 #include <QMessageBox>
 #include <QMenuBar>
 #include <QLabel>
+#include <QFileInfo>
 #include <tuple>
 
 
@@ -92,8 +93,30 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
     controlsLayout->addStretch(1);
     mainLayout->addWidget(controlsWidget, 0); // stretch factor 0
 
-    // Export action
+    // File menu actions
     QMenu* fileMenu = menuBar()->addMenu("File");
+    
+    // Open action
+    QAction* openAct = new QAction("Open...", this);
+    openAct->setShortcut(QKeySequence::Open);
+    connect(openAct, &QAction::triggered, [this]() {
+        QString filename = QFileDialog::getOpenFileName(this,
+                                                        "Open RAW File",
+                                                        lastOpenedDirectory,
+                                                        "RAW Files (*.cr2 *.cr3 *.nef *.arw *.dng *.raf *.orf *.rw2);;All Files (*.*)");
+        if(!filename.isEmpty()) {
+            try {
+                loadRaw(filename);
+            } catch (const std::exception& e) {
+                QMessageBox::critical(this, "Error", QString("Failed to load RAW file:\n%1").arg(e.what()));
+            }
+        }
+    });
+    fileMenu->addAction(openAct);
+    
+    fileMenu->addSeparator();
+    
+    // Export action
     QAction* exportAct = new QAction("Export PNG", this);
     connect(exportAct, &QAction::triggered, [this]() {
         QString filename = QFileDialog::getSaveFileName(this,
@@ -113,6 +136,10 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
 void MainWindow::loadRaw(const QString& path) 
 {
     fprintf(stderr, "loadRaw: Loading %s\n", path.toStdString().c_str());
+
+    // Remember the directory for next open dialog
+    QFileInfo fileInfo(path);
+    lastOpenedDirectory = fileInfo.absolutePath();
 
     RawImageResult result = loadRawImage(path.toStdString());
     HalfImage img = convertLibRaw16ToHalf(result.image);

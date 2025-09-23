@@ -9,7 +9,7 @@ inline void applyMatrix3x3(const float M[3][3], float& r,float& g,float& b){
 }
 
 // Camera RGB -> ACEScg
-inline void cameraToACEScg(HalfImage& img,const libraw_colordata_t& color){
+inline void cameraToACEScg(HalfImage& img, const libraw_colordata_t& color){
     float cam2xyz[3][3] = {
         {color.cam_xyz[0][0],color.cam_xyz[0][1],color.cam_xyz[0][2]},
         {color.cam_xyz[1][0],color.cam_xyz[1][1],color.cam_xyz[1][2]},
