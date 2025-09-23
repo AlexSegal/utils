@@ -232,41 +232,69 @@ void GLImageWidget::mouseMoveEvent(QMouseEvent *event){
 void GLImageWidget::wheelEvent(QWheelEvent *event){
     // Get mouse position in widget coordinates
     QPoint mousePos = event->position().toPoint();
-    fprintf(stderr, "wheelEvent: mouse at (%d,%d), widget size (%d,%d)\n", 
-            mousePos.x(), mousePos.y(), width(), height());
     
-    // Convert to normalized coordinates (0 to 1), with Y flipped to match OpenGL
-    float normX = static_cast<float>(mousePos.x()) / width();
-    float normY = 1.0f - static_cast<float>(mousePos.y()) / height(); // Flip Y
+    // Convert to normalized coordinates (-1 to 1) to match clip space
+    float clipX = (2.0f * mousePos.x() / width()) - 1.0f;
+    float clipY = 1.0f - (2.0f * mousePos.y() / height());
     
-    // Convert to centered coordinates (-0.5 to 0.5)
-    normX -= 0.5f;
-    normY -= 0.5f;
+    // Build the current transformation matrix (same as in paintGL)
+    Imath::M33f transform;
+    transform.makeIdentity();
+    transform = transform * Imath::M33f().setTranslation(Imath::V2f(-0.5f, -0.5f));
+    transform = transform * Imath::M33f().setScale(Imath::V2f(aspectScale.x(), aspectScale.y()));
     
-    // Apply aspect scale correction
-    normX *= aspectScale.x();
-    normY *= aspectScale.y();
+    float oldTotalZoom = zoom * 2.0f;
+    transform = transform * Imath::M33f().setScale(Imath::V2f(oldTotalZoom, oldTotalZoom));
     
-    fprintf(stderr, "Normalized coords: (%f,%f), aspectScale: (%f,%f)\n",
-            normX, normY, aspectScale.x(), aspectScale.y());
+    if (crop.rotation != 0.0f) {
+        transform = transform * Imath::M33f().setRotation(crop.rotation);
+    }
+    transform = transform * Imath::M33f().setTranslation(Imath::V2f(crop.centerX, crop.centerY));
     
-    // Calculate world position before zoom (relative to current view center)
-    float worldX = crop.centerX + (normX / zoom);
-    float worldY = crop.centerY + (normY / zoom);
+    // Invert the matrix to get from clip space to image space
+    Imath::M33f invTransform = transform.inverse();
     
-    // Apply zoom
+    // Transform mouse clip coordinates to image space
+    Imath::V3f clipPoint(clipX, clipY, 1.0f);
+    Imath::V3f imagePoint = clipPoint * invTransform;
+    
+    // Apply zoom change
     float delta = event->angleDelta().y() / 120.0f;
-    float newZoom = zoom * pow(1.1f, delta);
+    zoom *= pow(1.1f, delta);
     
-    fprintf(stderr, "Zoom: %f -> %f, world pos: (%f,%f)\n", zoom, newZoom, worldX, worldY);
+    // Build new transformation matrix with new zoom
+    Imath::M33f newTransform;
+    newTransform.makeIdentity();
+    newTransform = newTransform * Imath::M33f().setTranslation(Imath::V2f(-0.5f, -0.5f));
+    newTransform = newTransform * Imath::M33f().setScale(Imath::V2f(aspectScale.x(), aspectScale.y()));
     
-    // Calculate new pan to keep mouse position fixed
-    crop.centerX = worldX - (normX / newZoom);
-    crop.centerY = worldY - (normY / newZoom);
+    float newTotalZoom = zoom * 2.0f;
+    newTransform = newTransform * Imath::M33f().setScale(Imath::V2f(newTotalZoom, newTotalZoom));
     
-    fprintf(stderr, "New pan: (%f,%f)\n", crop.centerX, crop.centerY);
+    if (crop.rotation != 0.0f) {
+        newTransform = newTransform * Imath::M33f().setRotation(crop.rotation);
+    }
     
-    zoom = newZoom;
+    // We want: newTransform * imagePoint = clipPoint
+    // So: translation = clipPoint - (partialTransform * imagePoint)
+    Imath::M33f partialTransform;
+    partialTransform.makeIdentity();
+    partialTransform = partialTransform * Imath::M33f().setTranslation(Imath::V2f(-0.5f, -0.5f));
+    partialTransform = partialTransform * Imath::M33f().setScale(Imath::V2f(aspectScale.x(), aspectScale.y()));
+    partialTransform = partialTransform * Imath::M33f().setScale(Imath::V2f(newTotalZoom, newTotalZoom));
+    if (crop.rotation != 0.0f) {
+        partialTransform = partialTransform * Imath::M33f().setRotation(crop.rotation);
+    }
+    
+    Imath::V3f transformedPoint = imagePoint * partialTransform;
+    Imath::V2f requiredTranslation = Imath::V2f(clipPoint.x - transformedPoint.x, clipPoint.y - transformedPoint.y);
+    
+    crop.centerX = requiredTranslation.x;
+    crop.centerY = requiredTranslation.y;
+    
+    fprintf(stderr, "Mouse: (%d,%d) -> clip(%f,%f) -> image(%f,%f) -> newPan(%f,%f)\n",
+            mousePos.x(), mousePos.y(), clipX, clipY, imagePoint.x, imagePoint.y, crop.centerX, crop.centerY);
+    
     update();
 }
 
