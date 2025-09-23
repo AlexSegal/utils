@@ -4,6 +4,8 @@
 #include <QFile>
 #include <QOpenGLTexture>
 #include <QPainter>
+#include <QKeyEvent>
+#include <Imath/ImathMatrix.h>
 #include <cmath>
 
 #include "glimagewidget.h"
@@ -11,7 +13,10 @@
 
 GLImageWidget::GLImageWidget(QWidget* parent)
     : QOpenGLWidget(parent)
-{}
+{
+    setFocusPolicy(Qt::StrongFocus); // Enable strong keyboard focus
+    setAttribute(Qt::WA_AcceptTouchEvents, false); // Disable touch to avoid conflicts
+}
 
 void GLImageWidget::initializeGL() {
     initializeOpenGLFunctions();
@@ -82,7 +87,7 @@ void GLImageWidget::resizeGL(int w, int h) {
 }
 
 void GLImageWidget::setImage(const HalfImage &img) {
-    fprintf(stderr, "setImage: HERE!\n");
+    fprintf(stderr, "setImage: HERE! Image size: %dx%d\n", img.width, img.height);
     
     imgData = img;
 
@@ -111,7 +116,8 @@ void GLImageWidget::setImage(const HalfImage &img) {
         return;
     }
 
-    updateAspectScale(); // Calculate aspect for new image
+    updateAspectScale(); // Calculate aspect ratio for new image
+    fitToViewport();     // Auto-fit on load
     update();
 }
 
@@ -149,16 +155,42 @@ void GLImageWidget::paintGL() {
     glActiveTexture(GL_TEXTURE0);
     _m_tex->bind();
 
+    // Calculate transformation matrix using Imath
+    // We want to transform from image coordinates to screen coordinates
+    Imath::M33f transform;
+    transform.makeIdentity();
+    
+    // Step 1: Center the quad (from 0-1 to -0.5 to 0.5)
+    transform = transform * Imath::M33f().setTranslation(Imath::V2f(-0.5f, -0.5f));
+    
+    // Step 2: Apply aspect ratio correction to fit image in viewport
+    transform = transform * Imath::M33f().setScale(Imath::V2f(aspectScale.x(), aspectScale.y()));
+    
+    // Step 3: Apply zoom (both user zoom and base 2.0 scale)
+    float totalZoom = zoom * 2.0f;
+    transform = transform * Imath::M33f().setScale(Imath::V2f(totalZoom, totalZoom));
+    
+    // Step 4: Apply rotation around center
+    if (crop.rotation != 0.0f) {
+        transform = transform * Imath::M33f().setRotation(crop.rotation);
+    }
+    
+    // Step 5: Apply translation (pan)
+    transform = transform * Imath::M33f().setTranslation(Imath::V2f(crop.centerX, crop.centerY));
+    
+    // Convert to QMatrix3x3 for Qt (note: Imath is row-major, Qt expects column-major)
+    QMatrix3x3 qtTransform;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            qtTransform(j, i) = transform[i][j];  // Transpose for column-major
+        }
+    }
+    
     program.setUniformValue("_m_tex", 0);
+    program.setUniformValue("transform", qtTransform);
     program.setUniformValue("exposure", exposure);
     program.setUniformValue("wb", wb);
     program.setUniformValue("contrast", contrast);
-    program.setUniformValue("zoom", zoom);
-    program.setUniformValue("pan", QVector2D(panX,panY));
-    program.setUniformValue("cropCenter", QVector2D(crop.centerX,crop.centerY));
-    program.setUniformValue("cropSize", QVector2D(crop.width,crop.height));
-    program.setUniformValue("rotation", crop.rotation);
-    program.setUniformValue("aspectScale", aspectScale);
     program.setUniformValue("showGrid", showGrid);
 
     glBindVertexArray(vao);
@@ -178,6 +210,7 @@ void GLImageWidget::paintGL() {
 }
 
 void GLImageWidget::mousePressEvent(QMouseEvent *event){
+    setFocus(); // Ensure widget has focus for keyboard events
     lastMousePos=event->pos();
     if(event->button()==Qt::RightButton) rotating=true;
     else rotating=false;
@@ -197,8 +230,63 @@ void GLImageWidget::mouseMoveEvent(QMouseEvent *event){
 }
 
 void GLImageWidget::wheelEvent(QWheelEvent *event){
-    float delta=event->angleDelta().y()/120.0f;
-    zoom*=pow(1.1f,delta);
+    // Get mouse position in widget coordinates
+    QPoint mousePos = event->position().toPoint();
+    fprintf(stderr, "wheelEvent: mouse at (%d,%d), widget size (%d,%d)\n", 
+            mousePos.x(), mousePos.y(), width(), height());
+    
+    // Convert to normalized coordinates (0 to 1), with Y flipped to match OpenGL
+    float normX = static_cast<float>(mousePos.x()) / width();
+    float normY = 1.0f - static_cast<float>(mousePos.y()) / height(); // Flip Y
+    
+    // Convert to centered coordinates (-0.5 to 0.5)
+    normX -= 0.5f;
+    normY -= 0.5f;
+    
+    // Apply aspect scale correction
+    normX *= aspectScale.x();
+    normY *= aspectScale.y();
+    
+    fprintf(stderr, "Normalized coords: (%f,%f), aspectScale: (%f,%f)\n",
+            normX, normY, aspectScale.x(), aspectScale.y());
+    
+    // Calculate world position before zoom (relative to current view center)
+    float worldX = crop.centerX + (normX / zoom);
+    float worldY = crop.centerY + (normY / zoom);
+    
+    // Apply zoom
+    float delta = event->angleDelta().y() / 120.0f;
+    float newZoom = zoom * pow(1.1f, delta);
+    
+    fprintf(stderr, "Zoom: %f -> %f, world pos: (%f,%f)\n", zoom, newZoom, worldX, worldY);
+    
+    // Calculate new pan to keep mouse position fixed
+    crop.centerX = worldX - (normX / newZoom);
+    crop.centerY = worldY - (normY / newZoom);
+    
+    fprintf(stderr, "New pan: (%f,%f)\n", crop.centerX, crop.centerY);
+    
+    zoom = newZoom;
+    update();
+}
+
+void GLImageWidget::keyPressEvent(QKeyEvent *event) {
+    fprintf(stderr, "Key pressed: %d (F key is %d)\n", event->key(), Qt::Key_F);
+    if (event->key() == Qt::Key_F) {
+        fprintf(stderr, "F key detected, calling fitToViewport\n");
+        fitToViewport();
+    } else {
+        QOpenGLWidget::keyPressEvent(event);
+    }
+}
+
+void GLImageWidget::fitToViewport() {
+    fprintf(stderr, "fitToViewport called: zoom=%f -> 1.0, pan=(%f,%f) -> (0,0), rotation=%f -> 0\n", 
+            zoom, crop.centerX, crop.centerY, crop.rotation);
+    zoom = 1.0f;  // Changed from 2.0f to 1.0f for better initial fit
+    crop.centerX = 0.0f;
+    crop.centerY = 0.0f;
+    crop.rotation = 0.0f;
     update();
 }
 
@@ -220,17 +308,25 @@ bool GLImageWidget::exportImage(const QString &filename){
 void GLImageWidget::updateAspectScale() {
     if (!_m_tex || imgData.width == 0 || imgData.height == 0) {
         aspectScale = QVector2D(1.0f, 1.0f);
+        fprintf(stderr, "updateAspectScale: No texture or zero size, aspectScale = (1,1)\n");
         return;
     }
 
     float widgetAspect = static_cast<float>(width()) / static_cast<float>(height());
     float imageAspect = static_cast<float>(imgData.width) / static_cast<float>(imgData.height);
 
+    fprintf(stderr, "updateAspectScale: widget=%dx%d (aspect=%.3f), image=%dx%d (aspect=%.3f)\n", 
+            width(), height(), widgetAspect, imgData.width, imgData.height, imageAspect);
+
     if (imageAspect > widgetAspect) {
         // Image is wider than widget - fit to width, scale down height
         aspectScale = QVector2D(1.0f, widgetAspect / imageAspect);
+        fprintf(stderr, "updateAspectScale: Image wider, aspectScale = (%.3f, %.3f)\n", 
+                aspectScale.x(), aspectScale.y());
     } else {
         // Image is taller than widget - fit to height, scale down width  
         aspectScale = QVector2D(imageAspect / widgetAspect, 1.0f);
+        fprintf(stderr, "updateAspectScale: Image taller, aspectScale = (%.3f, %.3f)\n", 
+                aspectScale.x(), aspectScale.y());
     }
 }

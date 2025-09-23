@@ -7,7 +7,7 @@
 #include "halfimage.h"
 
 struct CropTransform {
-    float centerX=0.5f, centerY=0.5f;
+    float centerX=0.0f, centerY=0.0f;  // Changed from 0.5f to 0.0f
     float width=1.0f, height=1.0f;
     float rotation=0.0f;
 };
@@ -31,9 +31,11 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     void updateAspectScale(); // Calculate aspect ratio correction
+    void fitToViewport();     // Reset zoom/pan/rotation to fit image
     
     QOpenGLShaderProgram program;
     QOpenGLTexture* _m_tex = nullptr;

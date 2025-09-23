@@ -131,6 +131,9 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
         }
     });
     fileMenu->addAction(exportAct);
+    
+    // Set initial focus to the GL widget
+    glWidget->setFocus();
 }
 
 void MainWindow::loadRaw(const QString& path) 
@@ -145,6 +148,9 @@ void MainWindow::loadRaw(const QString& path)
     HalfImage img = convertLibRaw16ToHalf(result.image);
     cameraToACEScg(img, result.color);
     glWidget->setImage(img);
+    
+    // Ensure GL widget has focus for keyboard events
+    glWidget->setFocus();
 
     // Store cam_mul for relative WB
     float r = result.color.cam_mul[0];
