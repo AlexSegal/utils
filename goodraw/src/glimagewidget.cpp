@@ -1,3 +1,11 @@
+/**
+ * @file glimagewidget.cpp
+ * @brief OpenGL-accelerated RAW image viewer implementation
+ * 
+ * Implements real-time image display with matrix-based transformations,
+ * mouse/keyboard navigation, and GPU-accelerated image processing pipeline.
+ */
+
 #include <QOpenGLShader>
 #include <QOpenGLFramebufferObject>
 #include <QImage>
@@ -11,6 +19,14 @@
 #include "glimagewidget.h"
 #include "glsl_shaders.h"
 
+/**
+ * @brief Construct GL image widget with keyboard focus enabled
+ * 
+ * Enables strong keyboard focus for navigation shortcuts and disables
+ * touch events to prevent conflicts with mouse input.
+ * 
+ * @param parent Parent widget (optional)
+ */
 GLImageWidget::GLImageWidget(QWidget* parent)
     : QOpenGLWidget(parent)
 {
@@ -18,6 +34,12 @@ GLImageWidget::GLImageWidget(QWidget* parent)
     setAttribute(Qt::WA_AcceptTouchEvents, false); // Disable touch to avoid conflicts
 }
 
+/**
+ * @brief Initialize OpenGL context, shaders, and vertex buffers
+ * 
+ * Sets up OpenGL 3.3 core profile with vertex/fragment shaders,
+ * creates VAO/VBO for quad rendering, and configures vertex attributes.
+ */
 void GLImageWidget::initializeGL() {
     initializeOpenGLFunctions();
     GLenum err = glGetError();
@@ -81,11 +103,28 @@ void GLImageWidget::initializeGL() {
     if (err != GL_NO_ERROR) fprintf(stderr, "OpenGL error after glBindVertexArray(0): %d\n", err);
 }
 
+/**
+ * @brief Handle widget resize and update aspect ratio
+ * 
+ * Updates OpenGL viewport and recalculates aspect ratio correction
+ * to maintain proper image proportions in new widget dimensions.
+ * 
+ * @param w New widget width
+ * @param h New widget height
+ */
 void GLImageWidget::resizeGL(int w, int h) {
     glViewport(0, 0, w, h);
     updateAspectScale(); // Recalculate aspect when widget resizes
 }
 
+/**
+ * @brief Load and display a new RAW image
+ * 
+ * Converts half-precision image data to OpenGL RGB32F texture,
+ * calculates aspect ratio correction, and auto-fits image to viewport.
+ * 
+ * @param img Half-precision float image data in ACEScg color space
+ */
 void GLImageWidget::setImage(const HalfImage &img) {
     fprintf(stderr, "setImage: HERE! Image size: %dx%d\n", img.width, img.height);
     
@@ -121,12 +160,28 @@ void GLImageWidget::setImage(const HalfImage &img) {
     update();
 }
 
+/** @brief Set exposure adjustment in stops (0.0 = no adjustment) */
 void GLImageWidget::setExposure(float e){ exposure=e; update(); }
+
+/** @brief Set white balance RGB multipliers */
 void GLImageWidget::setWB(float r,float g,float b){ wb=QVector3D(r,g,b); update(); }
+
+/** @brief Set contrast adjustment (1.0 = no adjustment) */
 void GLImageWidget::setContrast(float c){ contrast=c; update(); }
+
+/** @brief Set zoom level (1.0 = default size) */
 void GLImageWidget::setZoom(float z){ zoom=z; update(); }
+
+/** @brief Set pan offset in normalized coordinates */
 void GLImageWidget::setPan(float x,float y){ panX=x; panY=y; update(); }
 
+/**
+ * @brief Render image with current transformations and adjustments
+ * 
+ * Applies matrix-based coordinate transformations for zoom, pan, and rotation.
+ * Uploads transformation matrix and processing parameters to GPU shaders.
+ * Uses Imath library for precise matrix calculations and proper coordinate mapping.
+ */
 void GLImageWidget::paintGL() {
     fprintf(stderr, "paintGL: HERE!\n");
 
@@ -209,6 +264,14 @@ void GLImageWidget::paintGL() {
 
 }
 
+/**
+ * @brief Handle mouse press for pan/rotate initiation and focus
+ * 
+ * Sets widget focus for keyboard events, stores initial mouse position,
+ * and determines interaction mode (left=pan, right=rotate with grid overlay).
+ * 
+ * @param event Mouse press event containing button and position
+ */
 void GLImageWidget::mousePressEvent(QMouseEvent *event){
     setFocus(); // Ensure widget has focus for keyboard events
     lastMousePos=event->pos();
@@ -217,6 +280,15 @@ void GLImageWidget::mousePressEvent(QMouseEvent *event){
     showGrid=rotating;
 }
 
+/**
+ * @brief Handle mouse drag for panning and rotation
+ * 
+ * Calculates mouse delta and applies appropriate transformation:
+ * - Right button: rotation around center with visual grid
+ * - Left button: panning with zoom-compensated sensitivity
+ * 
+ * @param event Mouse move event containing current position
+ */
 void GLImageWidget::mouseMoveEvent(QMouseEvent *event){
     QPointF delta=event->pos()-lastMousePos;
     if(rotating){
@@ -229,6 +301,20 @@ void GLImageWidget::mouseMoveEvent(QMouseEvent *event){
     update();
 }
 
+/**
+ * @brief Handle mouse wheel for zoom with cursor-centered scaling
+ * 
+ * Implements sophisticated mouse-centered zoom using matrix inverse transformations.
+ * Preserves the image point under mouse cursor while changing zoom level.
+ * 
+ * Uses complete transformation pipeline:
+ * 1. Convert mouse to clip coordinates
+ * 2. Transform to image space via matrix inverse  
+ * 3. Apply zoom change
+ * 4. Calculate required pan offset to maintain cursor position
+ * 
+ * @param event Wheel event containing scroll delta and mouse position
+ */
 void GLImageWidget::wheelEvent(QWheelEvent *event){
     // Get mouse position in widget coordinates
     QPoint mousePos = event->position().toPoint();
@@ -298,6 +384,14 @@ void GLImageWidget::wheelEvent(QWheelEvent *event){
     update();
 }
 
+/**
+ * @brief Handle keyboard input (F key for fit-to-viewport)
+ * 
+ * Processes keyboard shortcuts for navigation:
+ * - F key: Reset view to default zoom, center, and rotation
+ * 
+ * @param event Key press event containing key code
+ */
 void GLImageWidget::keyPressEvent(QKeyEvent *event) {
     fprintf(stderr, "Key pressed: %d (F key is %d)\n", event->key(), Qt::Key_F);
     if (event->key() == Qt::Key_F) {
@@ -308,6 +402,12 @@ void GLImageWidget::keyPressEvent(QKeyEvent *event) {
     }
 }
 
+/**
+ * @brief Reset view to default zoom, center, and rotation
+ * 
+ * Sets zoom to 1.0, centers image, and clears rotation. Called on
+ * image load and F key press for consistent viewport reset.
+ */
 void GLImageWidget::fitToViewport() {
     fprintf(stderr, "fitToViewport called: zoom=%f -> 1.0, pan=(%f,%f) -> (0,0), rotation=%f -> 0\n", 
             zoom, crop.centerX, crop.centerY, crop.rotation);
@@ -318,6 +418,15 @@ void GLImageWidget::fitToViewport() {
     update();
 }
 
+/**
+ * @brief Export current view to image file
+ * 
+ * Renders current view (with all transformations and adjustments) to
+ * framebuffer object, then saves as image file. Supports PNG/JPEG formats.
+ * 
+ * @param filename Output file path (format determined by extension)
+ * @return true if export successful, false otherwise
+ */
 bool GLImageWidget::exportImage(const QString &filename){
     if(!_m_tex) return false;
 
@@ -333,6 +442,13 @@ bool GLImageWidget::exportImage(const QString &filename){
     return img.save(filename);
 }
 
+/**
+ * @brief Calculate aspect ratio correction for proper image display
+ * 
+ * Computes scaling factors to fit image in viewport while maintaining
+ * aspect ratio. Handles both landscape and portrait orientations correctly.
+ * Updates aspectScale member for use in transformation matrix.
+ */
 void GLImageWidget::updateAspectScale() {
     if (!_m_tex || imgData.width == 0 || imgData.height == 0) {
         aspectScale = QVector2D(1.0f, 1.0f);

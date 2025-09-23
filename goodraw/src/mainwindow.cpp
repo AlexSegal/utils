@@ -1,4 +1,11 @@
-// mainwindow.cpp
+/**
+ * @file mainwindow.cpp
+ * @brief Main application window implementation with UI controls
+ * 
+ * Provides the primary interface for GoodRAW with File menu, adjustment sliders,
+ * and OpenGL image display. Manages RAW file loading and white balance calculations.
+ */
+
 #include "mainwindow.h"
 #include "rawdecoder.h"
 #include "halfimage.h"
@@ -12,6 +19,15 @@
 #include <QFileInfo>
 #include <tuple>
 
+/**
+ * @brief Construct main window with UI controls and GL viewer
+ * 
+ * Creates the complete interface with image display on left and adjustment
+ * controls on right. Sets up File menu with Open/Export actions and
+ * configures real-time slider updates.
+ * 
+ * @param parent Parent widget (optional)
+ */
 
 MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
 {
@@ -30,7 +46,14 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
     QVBoxLayout* controlsLayout = new QVBoxLayout(controlsWidget);
     controlsLayout->setAlignment(Qt::AlignTop);
 
-    // Helper to make slider+label+value
+    /**
+     * @brief Helper lambda to create labeled slider with value display
+     * @param labelText Display name for the slider
+     * @param min Minimum slider value
+     * @param max Maximum slider value  
+     * @param val Initial slider value
+     * @return Tuple containing slider and value label widgets
+     */
     auto makeLabeledSlider = [controlsLayout](const QString& labelText, int min, int max, int val) {
         QWidget* row = new QWidget;
         QHBoxLayout* rowLayout = new QHBoxLayout(row);
@@ -58,7 +81,12 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
     kelvinSlider = kelvinSlider_;
     contrastSlider = contrastSlider_;
 
-    // Update value labels and glWidget on slider change
+    /**
+     * @brief Helper lambda to connect slider value changes to UI updates
+     * @param slider QSlider widget to monitor
+     * @param valueLabel QLabel to update with current value
+     * @param onChange Callback function for value changes
+     */
     auto connectSlider = [](QSlider* slider, QLabel* valueLabel, std::function<void()> onChange) {
         QObject::connect(slider, &QSlider::valueChanged, [slider, valueLabel, onChange](int v){
             valueLabel->setText(QString::number(v));
@@ -66,6 +94,12 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
         });
     };
 
+    /**
+     * @brief Lambda to update GL widget with current slider values
+     * 
+     * Converts slider values to appropriate ranges and applies relative
+     * white balance shifts while preserving camera calibration.
+     */
     auto updateGlWidget = [this]() {
         float exp = exposureSlider->value()/10.0f;
         int shift = kelvinSlider->value();
@@ -136,6 +170,15 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
     glWidget->setFocus();
 }
 
+/**
+ * @brief Load and display a RAW image file
+ * 
+ * Processes RAW file through complete pipeline: LibRaw decoding → half-float
+ * conversion → ACES color space transformation → GL widget display.
+ * Extracts and applies camera white balance, remembers directory for file dialog.
+ * 
+ * @param path Absolute path to RAW image file (.cr2, .nef, .arw, etc.)
+ */
 void MainWindow::loadRaw(const QString& path) 
 {
     fprintf(stderr, "loadRaw: Loading %s\n", path.toStdString().c_str());

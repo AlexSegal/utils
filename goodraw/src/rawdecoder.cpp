@@ -1,7 +1,24 @@
-// rawdecoder.cpp
+/**
+ * @file rawdecoder.cpp
+ * @brief LibRaw integration for RAW file processing
+ * 
+ * Implements RAW image loading using LibRaw library with 16-bit output
+ * for maximum precision in the ACES color pipeline.
+ */
+
 #include "rawdecoder.h"
 #include <stdexcept>
 
+/**
+ * @brief Load and process RAW image file using LibRaw
+ * 
+ * Opens RAW file, applies basic processing (demosaicing, color space conversion),
+ * and returns 16-bit RGB image with embedded color metadata for ACES workflow.
+ * 
+ * @param path Absolute path to RAW image file (.cr2, .nef, .arw, etc.)
+ * @return RawImageResult containing processed image and color data
+ * @throws std::runtime_error if file cannot be opened or processed
+ */
 RawImageResult loadRawImage(const std::string& path){
     LibRaw raw;
     raw.imgdata.params.output_bps = 16; // Request 16 bits per channel output

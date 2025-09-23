@@ -1,3 +1,18 @@
+/**
+ * @file glsl_shaders.h
+ * @brief OpenGL 3.3 vertex and fragment shaders for real-time RAW processing
+ * 
+ * Contains GLSL shaders for rendering RAW images with real-time exposure,
+ * white balance, contrast, and ACES tone mapping. Uses matrix-based
+ * coordinate transformations for smooth navigation.
+ */
+
+/**
+ * @brief Vertex shader for image quad rendering with matrix transformations
+ * 
+ * Applies 2D transformation matrix for zoom, pan, and rotation.
+ * Transforms quad vertices from normalized coordinates to screen space.
+ */
 static const char* vertexShaderSource = R"(
 #version 330 core
 layout(location=0) in vec2 aPos;
@@ -14,7 +29,13 @@ void main(){
 }
 )";
 
-
+/**
+ * @brief Fragment shader for RAW image processing and tone mapping
+ * 
+ * Applies exposure compensation, white balance, contrast adjustment,
+ * and ACES filmic tone mapping for cinema-quality output. Handles
+ * edge clamping to prevent texture bleeding during transformations.
+ */
 static const char* fragmentShaderSource = R"(
 #version 330 core
 in vec2 TexCoord;
@@ -26,6 +47,7 @@ uniform vec3 wb;
 uniform float contrast;
 uniform bool showGrid;
 
+// ACES filmic tone mapping curve for cinema-standard output
 vec3 ACESFilm(vec3 x){
     const float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14;
     return clamp((x*(a*x+b))/(x*(c*x+d)+e),0.0,1.0);
@@ -41,12 +63,14 @@ void main(){
         return;
     }
     
+    // Sample RGB image and apply processing pipeline
     vec3 color = texture(_m_tex, clampedTexCoord).rgb;
-    color *= wb;
-    color *= pow(2.0,exposure);
-    color = (color-0.5)*contrast + 0.5;
-    color = ACESFilm(color);
+    color *= wb;                                    // White balance correction
+    color *= pow(2.0,exposure);                     // Exposure adjustment (stops)
+    color = (color-0.5)*contrast + 0.5;           // Contrast around middle gray
+    color = ACESFilm(color);                       // Cinema-standard tone mapping
 
+    // Optional rotation grid overlay for alignment
     if(showGrid){
         float gx = abs(fract(TexCoord.x*3.0-0.5)-0.5)*6.0;
         float gy = abs(fract(TexCoord.y*3.0-0.5)-0.5)*6.0;
