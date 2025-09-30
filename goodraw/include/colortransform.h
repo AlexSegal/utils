@@ -1,6 +1,13 @@
 #pragma once
 #include "halfimage.h"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+// Forward declaration for OCIO display transform (implemented in ocio_transform.cpp)
+void acesCgToDisplay(HalfImage& img);
+
 /**
  * @brief Apply 3x3 matrix transformation to RGB color values
  * 
@@ -53,7 +60,10 @@ inline void cameraToACEScg(HalfImage& img, const libraw_colordata_t& color){
         {0.0083161484f,-0.0060324498f,0.9977163014f}
     };
 
-    // Apply complete transformation chain to each pixel
+    // Apply complete transformation chain to each pixel (parallelized)
+#ifdef _OPENMP
+    #pragma omp parallel for schedule(dynamic, 16)
+#endif
     for(int y=0;y<img.height;++y)
         for(int x=0;x<img.width;++x){
             half* p=img.pixel(x,y);
@@ -64,3 +74,5 @@ inline void cameraToACEScg(HalfImage& img, const libraw_colordata_t& color){
             p[0]=half(r); p[1]=half(g); p[2]=half(b);
         }
 }
+
+

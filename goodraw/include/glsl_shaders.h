@@ -47,11 +47,7 @@ uniform vec3 wb;
 uniform float contrast;
 uniform bool showGrid;
 
-// ACES filmic tone mapping curve for cinema-standard output
-vec3 ACESFilm(vec3 x){
-    const float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14;
-    return clamp((x*(a*x+b))/(x*(c*x+d)+e),0.0,1.0);
-}
+// Note: ACES tone mapping now handled by OCIO display transform on CPU
 
 void main(){
     // Clamp texture coordinates to prevent edge streaking
@@ -64,11 +60,12 @@ void main(){
     }
     
     // Sample RGB image and apply processing pipeline
+    // Note: Image is now in sRGB display space (via OCIO display transform)
     vec3 color = texture(_m_tex, clampedTexCoord).rgb;
     color *= wb;                                    // White balance correction
     color *= pow(2.0,exposure);                     // Exposure adjustment (stops)
     color = (color-0.5)*contrast + 0.5;           // Contrast around middle gray
-    color = ACESFilm(color);                       // Cinema-standard tone mapping
+    color = clamp(color, 0.0, 1.0);               // Clamp to display range
 
     // Optional rotation grid overlay for alignment
     if(showGrid){

@@ -126,7 +126,7 @@ void GLImageWidget::resizeGL(int w, int h) {
  * @param img Half-precision float image data in ACEScg color space
  */
 void GLImageWidget::setImage(const HalfImage &img) {
-    fprintf(stderr, "setImage: HERE! Image size: %dx%d\n", img.width, img.height);
+
     
     imgData = img;
 
@@ -151,7 +151,7 @@ void GLImageWidget::setImage(const HalfImage &img) {
     _m_tex->setData(QOpenGLTexture::RGB, QOpenGLTexture::Float32, buffer.data());
 
     if (!_m_tex) {
-        fprintf(stderr, "setImage: No texture set\n");
+
         return;
     }
 
@@ -183,7 +183,7 @@ void GLImageWidget::setPan(float x,float y){ panX=x; panY=y; update(); }
  * Uses Imath library for precise matrix calculations and proper coordinate mapping.
  */
 void GLImageWidget::paintGL() {
-    fprintf(stderr, "paintGL: HERE!\n");
+
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) fprintf(stderr, "OpenGL error at start of paintGL: %d\n", err);
@@ -202,7 +202,6 @@ void GLImageWidget::paintGL() {
     if (err != GL_NO_ERROR) fprintf(stderr, "OpenGL error after glDisable: %d\n", err);
 
     if (!_m_tex) {
-        fprintf(stderr, "paintGL BEFORE: No texture set\n");
         return;
     }
 
@@ -257,10 +256,7 @@ void GLImageWidget::paintGL() {
     _m_tex->release();
     program.release();
 
-    if (!_m_tex) {
-        fprintf(stderr, "paintGL AFTER: No texture set\n");
-        return;
-    }
+
 
 }
 

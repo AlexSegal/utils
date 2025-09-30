@@ -8,6 +8,7 @@
 
 #include "rawdecoder.h"
 #include <stdexcept>
+#include <memory>
 
 /**
  * @brief Load and process RAW image file using LibRaw
@@ -20,7 +21,9 @@
  * @throws std::runtime_error if file cannot be opened or processed
  */
 RawImageResult loadRawImage(const std::string& path){
-    LibRaw raw;
+    // Use heap allocation instead of stack to avoid stack overflow
+    std::unique_ptr<LibRaw> raw_ptr = std::make_unique<LibRaw>();
+    LibRaw& raw = *raw_ptr;
     raw.imgdata.params.output_bps = 16; // Request 16 bits per channel output
         
     if(raw.open_file(path.c_str()) != LIBRAW_SUCCESS) {
@@ -37,5 +40,6 @@ RawImageResult loadRawImage(const std::string& path){
 
     libraw_processed_image_t* img = raw.dcraw_make_mem_image();
     libraw_colordata_t color = raw.imgdata.color;
+    
     return RawImageResult{img, color};
 }

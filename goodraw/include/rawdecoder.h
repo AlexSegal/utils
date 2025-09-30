@@ -1,7 +1,7 @@
 // rawdecoder.h
 #pragma once
 #include <libraw/libraw.h>
-#include <libraw/libraw.h>
+#include <memory>
 
 /**
  * @brief Container for LibRaw processing results with color metadata

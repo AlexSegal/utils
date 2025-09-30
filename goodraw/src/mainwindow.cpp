@@ -181,8 +181,6 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
  */
 void MainWindow::loadRaw(const QString& path) 
 {
-    fprintf(stderr, "loadRaw: Loading %s\n", path.toStdString().c_str());
-
     // Remember the directory for next open dialog
     QFileInfo fileInfo(path);
     lastOpenedDirectory = fileInfo.absolutePath();
@@ -190,6 +188,15 @@ void MainWindow::loadRaw(const QString& path)
     RawImageResult result = loadRawImage(path.toStdString());
     HalfImage img = convertLibRaw16ToHalf(result.image);
     cameraToACEScg(img, result.color);
+    
+    // Apply ACES display transform (ACEScg → sRGB with proper RRT/ODT)
+    try {
+        acesCgToDisplay(img);
+    } catch (const std::exception& e) {
+        // Log OCIO error but continue - image will be in linear ACEScg
+        qWarning() << "OCIO display transform failed:" << e.what();
+    }
+    
     glWidget->setImage(img);
     
     // Ensure GL widget has focus for keyboard events

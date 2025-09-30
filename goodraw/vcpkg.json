@@ -1,0 +1,12 @@
+{
+  "name": "goodraw",
+  "version": "0.1.0",
+  "builtin-baseline": "9c5c2a0ab75aff5bcd08142525f6ff7f6f7ddeee",
+  "dependencies": [
+    "libraw",
+    "opencolorio",
+    "imath",
+    "opengl",
+    "libraw"
+  ]
+}
