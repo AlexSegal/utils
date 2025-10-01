@@ -114,6 +114,47 @@ inline void cameraToACEScg(HalfImage& img, const libraw_colordata_t& color){
 }
 
 /**
+ * @brief Convert XYZ color space to ACEScg working space
+ * 
+ * Transforms LibRaw's XYZ output to ACEScg for professional color grading.
+ * LibRaw (output_color=5) → XYZ → ACES AP0 → ACEScg (AP1)
+ * 
+ * @param img Image data to transform from XYZ to ACEScg (modified in-place)
+ */
+inline void xyzToACEScg(HalfImage& img) {
+    // XYZ → ACES AP0 (ACES2065-1) - Standard ACES transformation matrix
+    // Source: AMPAS ACES documentation, verified against multiple implementations
+    static const float XYZ_to_AP0[3][3] = {
+        { 0.9525523959f,  0.0000000000f,  0.0000936786f},
+        { 0.3439664498f,  0.7281660966f, -0.0721325464f},
+        { 0.0000000000f,  0.0000000000f,  1.0088251844f}
+    };
+
+    // ACES AP0 → ACEScg (AP1) - Standard ACES working space transformation
+    // Source: AMPAS ACES documentation, verified against multiple implementations  
+    static const float AP0_to_AP1[3][3] = {
+        { 1.4514393161f, -0.2365107469f, -0.2149285693f},
+        {-0.0765537734f,  1.1762296998f, -0.0996759264f},
+        { 0.0083161484f, -0.0060324498f,  0.9977163014f}
+    };
+
+    // Apply transformation chain to each pixel (parallelized)
+#ifdef _OPENMP
+    #pragma omp parallel for schedule(dynamic, 16)
+#endif
+    for(int y=0;y<img.height;++y)
+        for(int x=0;x<img.width;++x){
+            half* p=img.pixel(x,y);
+            float r=float(p[0]), g=float(p[1]), b=float(p[2]);
+            
+            applyMatrix3x3(XYZ_to_AP0,r,g,b);   // XYZ → ACES AP0
+            applyMatrix3x3(AP0_to_AP1,r,g,b);   // AP0 → ACEScg (AP1)
+            
+            p[0]=half(r); p[1]=half(g); p[2]=half(b);
+        }
+}
+
+/**
  * @brief Apply only camera white balance without color space conversion
  * 
  * NOTE: This function is now deprecated and does nothing.

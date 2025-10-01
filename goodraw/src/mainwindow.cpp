@@ -10,6 +10,7 @@
 #include "mainwindow.h"
 #include "rawdecoder.h"
 #include "halfimage.h"
+#include "colortransform.h"
 #include <QVBoxLayout>
 #include <QSlider>
 #include <QFileDialog>
@@ -188,7 +189,9 @@ void MainWindow::loadRaw(const QString& path)
     RawImageResult result = loadRawImage(path.toStdString());
     HalfImage img = convertLibRaw16ToHalf(result.image);
     
-    // LibRaw outputs linear sRGB - ready for display
+    // LibRaw outputs XYZ - convert to ACEScg for professional color pipeline
+    xyzToACEScg(img);
+    
     glWidget->setImage(img);
     
     // Ensure GL widget has focus for keyboard events

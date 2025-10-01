@@ -25,12 +25,12 @@ RawImageResult loadRawImage(const std::string& path){
     std::unique_ptr<LibRaw> raw_ptr = std::make_unique<LibRaw>();
     LibRaw& raw = *raw_ptr;
     
-    // Configure LibRaw to output linear sRGB
+    // Configure LibRaw to output linear XYZ color space
     raw.imgdata.params.output_bps = 16;        // 16 bits per channel
     raw.imgdata.params.gamm[0] = 1.0;          // Linear gamma (no gamma correction)
     raw.imgdata.params.gamm[1] = 1.0;          // Linear gamma (no gamma correction)
     raw.imgdata.params.no_auto_bright = 1;    // Disable auto-brightness
-    raw.imgdata.params.output_color = 1;      // sRGB color space
+    raw.imgdata.params.output_color = 5;      // XYZ color space (D65 illuminant)
         
     if(raw.open_file(path.c_str()) != LIBRAW_SUCCESS) {
             throw std::runtime_error("Failed to open RAW");
