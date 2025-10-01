@@ -18,6 +18,8 @@
 #include <QMenuBar>
 #include <QLabel>
 #include <QFileInfo>
+#include <QScreen>
+#include <QGuiApplication>
 #include <tuple>
 
 /**
@@ -166,6 +168,20 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
         }
     });
     fileMenu->addAction(exportAct);
+    
+    // Set window size to 80% of screen size
+    QScreen* screen = QGuiApplication::primaryScreen();
+    if (screen) {
+        QRect screenGeometry = screen->availableGeometry();
+        int width = static_cast<int>(screenGeometry.width() * 0.8);
+        int height = static_cast<int>(screenGeometry.height() * 0.8);
+        resize(width, height);
+        
+        // Center the window on screen
+        int x = (screenGeometry.width() - width) / 2;
+        int y = (screenGeometry.height() - height) / 2;
+        move(x, y);
+    }
     
     // Set initial focus to the GL widget
     glWidget->setFocus();

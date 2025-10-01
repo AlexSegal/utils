@@ -139,9 +139,15 @@ void GLImageWidget::setImage(const HalfImage &img) {
     _m_tex->setFormat(QOpenGLTexture::RGB32F);
     _m_tex->setSize(img.width, img.height);
     _m_tex->allocateStorage();
-    _m_tex->setMinificationFilter(QOpenGLTexture::Nearest);
-    _m_tex->setMagnificationFilter(QOpenGLTexture::Nearest);
+    // Use high-quality texture filtering optimized for image viewing
+    _m_tex->setMinificationFilter(QOpenGLTexture::Linear);  // Bilinear filtering
+    _m_tex->setMagnificationFilter(QOpenGLTexture::Linear); // Bilinear for magnification
     _m_tex->setWrapMode(QOpenGLTexture::ClampToEdge);
+    
+    // Enable anisotropic filtering for crisp details (works without mipmaps)
+    if (_m_tex->hasFeature(QOpenGLTexture::AnisotropicFiltering)) {
+        _m_tex->setMaximumAnisotropy(8.0f);  // Good balance of quality vs. performance
+    }
 
     // Convert half to float for OpenGL upload
     std::vector<float> buffer(img.width * img.height * 3);
