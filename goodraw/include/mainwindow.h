@@ -3,6 +3,8 @@
 #include <QMainWindow>
 #include <QSlider>
 #include "glimagewidget.h"
+#include "halfimage.h"
+#include "rawdecoder.h"
 
 /**
  * @brief Main application window with image viewer and adjustment controls

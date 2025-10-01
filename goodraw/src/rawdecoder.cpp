@@ -2,8 +2,8 @@
  * @file rawdecoder.cpp
  * @brief LibRaw integration for RAW file processing
  * 
- * Implements RAW image loading using LibRaw library with 16-bit output
- * for maximum precision in the ACES color pipeline.
+ * Implements RAW image loading using LibRaw library with 16-bit linear sRGB output
+ * for accurate color reproduction.
  */
 
 #include "rawdecoder.h"
@@ -24,7 +24,13 @@ RawImageResult loadRawImage(const std::string& path){
     // Use heap allocation instead of stack to avoid stack overflow
     std::unique_ptr<LibRaw> raw_ptr = std::make_unique<LibRaw>();
     LibRaw& raw = *raw_ptr;
-    raw.imgdata.params.output_bps = 16; // Request 16 bits per channel output
+    
+    // Configure LibRaw to output linear sRGB
+    raw.imgdata.params.output_bps = 16;        // 16 bits per channel
+    raw.imgdata.params.gamm[0] = 1.0;          // Linear gamma (no gamma correction)
+    raw.imgdata.params.gamm[1] = 1.0;          // Linear gamma (no gamma correction)
+    raw.imgdata.params.no_auto_bright = 1;    // Disable auto-brightness
+    raw.imgdata.params.output_color = 1;      // sRGB color space
         
     if(raw.open_file(path.c_str()) != LIBRAW_SUCCESS) {
             throw std::runtime_error("Failed to open RAW");

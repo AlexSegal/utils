@@ -3,13 +3,13 @@
  * @brief Main application window implementation with UI controls
  * 
  * Provides the primary interface for GoodRAW with File menu, adjustment sliders,
- * and OpenGL image display. Manages RAW file loading and white balance calculations.
+ * and OpenGL image display. Manages RAW file loading with LibRaw's sRGB output
+ * and real-time white balance adjustments.
  */
 
 #include "mainwindow.h"
 #include "rawdecoder.h"
 #include "halfimage.h"
-#include "colortransform.h"
 #include <QVBoxLayout>
 #include <QSlider>
 #include <QFileDialog>
@@ -187,38 +187,19 @@ void MainWindow::loadRaw(const QString& path)
 
     RawImageResult result = loadRawImage(path.toStdString());
     HalfImage img = convertLibRaw16ToHalf(result.image);
-    cameraToACEScg(img, result.color);
     
-    // Apply ACES display transform (ACEScg → sRGB with proper RRT/ODT)
-    try {
-        acesCgToDisplay(img);
-    } catch (const std::exception& e) {
-        // Log OCIO error but continue - image will be in linear ACEScg
-        qWarning() << "OCIO display transform failed:" << e.what();
-    }
-    
+    // LibRaw outputs linear sRGB - ready for display
     glWidget->setImage(img);
     
     // Ensure GL widget has focus for keyboard events
     glWidget->setFocus();
 
-    // Store cam_mul for relative WB
-    float r = result.color.cam_mul[0];
-    float g = result.color.cam_mul[1];
-    float b = result.color.cam_mul[2];
-    if (g > 0.0f) {
-        r /= g;
-        b /= g;
-        g = 1.0f;
-    } else {
-        r = g = b = 1.0f;
-    }
-    camMulR = r;
-    camMulG = g;
-    camMulB = b;
+    // Initialize interactive white balance controls to neutral
+    camMulR = 1.0f;
+    camMulG = 1.0f;
+    camMulB = 1.0f;
     kelvinSlider->setValue(0);
-    // Apply initial WB using cam_mul
-    // updateGlWidget is a lambda in the constructor, so we need to trigger the slider or call it directly
-    // We'll trigger the slider to ensure UI updates
+    
+    // Apply initial neutral white balance to GPU
     QMetaObject::invokeMethod(kelvinSlider, "valueChanged", Q_ARG(int, 0));
 }

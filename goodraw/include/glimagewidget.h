@@ -119,7 +119,7 @@ private:
     QOpenGLTexture* _m_tex = nullptr;     ///< RGB16F texture containing image data
     HalfImage imgData;                    ///< Local copy of image data for aspect calculations
     float exposure = 0.0f;                ///< Exposure adjustment in stops
-    QVector3D wb = {1.0f,1.0f,1.0f};      ///< White balance RGB multipliers
+    QVector3D wb = {1.0f,1.0f,1.0f};      ///< Interactive white balance RGB multipliers
     float contrast = 1.0f;                ///< Contrast multiplier
     float zoom = 1.0f;                    ///< User zoom factor (combined with 2.0 base scale)
     float panX = 0.0f;                    ///< Legacy pan X (unused with matrix system)

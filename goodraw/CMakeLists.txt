@@ -54,7 +54,6 @@ add_executable(${PROJECT_NAME}
     src/mainwindow.cpp
     src/glimagewidget.cpp
     src/rawdecoder.cpp
-    src/ocio_transform.cpp
 )
 
 # Include directories

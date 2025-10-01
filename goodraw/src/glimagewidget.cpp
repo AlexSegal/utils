@@ -163,7 +163,7 @@ void GLImageWidget::setImage(const HalfImage &img) {
 /** @brief Set exposure adjustment in stops (0.0 = no adjustment) */
 void GLImageWidget::setExposure(float e){ exposure=e; update(); }
 
-/** @brief Set white balance RGB multipliers */
+/** @brief Set interactive white balance RGB multipliers */
 void GLImageWidget::setWB(float r,float g,float b){ wb=QVector3D(r,g,b); update(); }
 
 /** @brief Set contrast adjustment (1.0 = no adjustment) */
