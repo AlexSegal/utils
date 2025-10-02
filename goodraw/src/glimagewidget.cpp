@@ -297,8 +297,9 @@ void GLImageWidget::mouseMoveEvent(QMouseEvent *event){
     if(rotating){
         crop.rotation += delta.x()*0.01f;
     } else if(event->buttons() & Qt::LeftButton){
-        crop.centerX += delta.x()/width()/zoom;
-        crop.centerY -= delta.y()/height()/zoom;
+        // Pan with consistent screen-space movement - remove zoom division for more responsive feel
+        crop.centerX += delta.x() / width() * 2.0f;
+        crop.centerY -= delta.y() / height() * 2.0f;
     }
     lastMousePos=event->pos();
     update();
