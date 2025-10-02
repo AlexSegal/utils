@@ -2,6 +2,8 @@
 #pragma once
 #include <QMainWindow>
 #include <QSlider>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include "glimagewidget.h"
 #include "halfimage.h"
 #include "rawdecoder.h"
@@ -26,6 +28,19 @@ public:
      * @param path Absolute path to RAW image file (.cr2, .nef, .arw, etc.)
      */
     void loadRaw(const QString& path);
+
+protected:
+    /**
+     * @brief Handle drag enter events for file drag and drop
+     * @param event Drag enter event containing file information
+     */
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    
+    /**
+     * @brief Handle drop events for file drag and drop
+     * @param event Drop event containing dropped file paths
+     */
+    void dropEvent(QDropEvent* event) override;
 
 private:
     GLImageWidget* glWidget;              ///< OpenGL image display widget

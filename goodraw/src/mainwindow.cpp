@@ -20,6 +20,10 @@
 #include <QFileInfo>
 #include <QScreen>
 #include <QGuiApplication>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QUrl>
 #include <tuple>
 
 /**
@@ -183,6 +187,9 @@ MainWindow::MainWindow(QWidget* parent):QMainWindow(parent)
         move(x, y);
     }
     
+    // Enable drag and drop functionality
+    setAcceptDrops(true);
+    
     // Set initial focus to the GL widget
     glWidget->setFocus();
 }
@@ -221,4 +228,97 @@ void MainWindow::loadRaw(const QString& path)
     
     // Apply initial neutral white balance to GPU
     QMetaObject::invokeMethod(kelvinSlider, "valueChanged", Q_ARG(int, 0));
+}
+
+/**
+ * @brief Handle drag enter events for file drag and drop
+ * 
+ * Accepts drag events that contain file URLs with supported RAW file extensions.
+ * Provides visual feedback when dragging supported files over the window.
+ * 
+ * @param event Drag enter event containing MIME data with file information
+ */
+void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
+    // Check if the drag contains file URLs
+    if (event->mimeData()->hasUrls()) {
+        QList<QUrl> urls = event->mimeData()->urls();
+        
+        // Check if at least one file has a supported RAW extension
+        for (const QUrl& url : urls) {
+            if (url.isLocalFile()) {
+                QString filePath = url.toLocalFile();
+                QString extension = QFileInfo(filePath).suffix().toLower();
+                
+                // List of supported RAW file extensions
+                QStringList supportedExtensions = {
+                    "cr2", "cr3",           // Canon
+                    "nef", "nrw",           // Nikon  
+                    "arw", "srf", "sr2",    // Sony
+                    "orf",                  // Olympus
+                    "rw2",                  // Panasonic
+                    "dng",                  // Adobe DNG
+                    "raf",                  // Fujifilm
+                    "pef", "ptx",           // Pentax
+                    "x3f",                  // Sigma
+                    "mrw",                  // Minolta
+                    "dcr", "kdc",           // Kodak
+                    "erf",                  // Epson
+                    "mef",                  // Mamiya
+                    "mos",                  // Leaf
+                    "raw", "rwl"            // Generic
+                };
+                
+                if (supportedExtensions.contains(extension)) {
+                    event->acceptProposedAction();
+                    return;
+                }
+            }
+        }
+    }
+    
+    // Reject the drag if no supported files found
+    event->ignore();
+}
+
+/**
+ * @brief Handle drop events for file drag and drop
+ * 
+ * Processes dropped files and loads the first supported RAW file found.
+ * Shows error message if no supported files are dropped.
+ * 
+ * @param event Drop event containing dropped file paths
+ */
+void MainWindow::dropEvent(QDropEvent* event) {
+    if (event->mimeData()->hasUrls()) {
+        QList<QUrl> urls = event->mimeData()->urls();
+        
+        // Process the first supported RAW file found
+        for (const QUrl& url : urls) {
+            if (url.isLocalFile()) {
+                QString filePath = url.toLocalFile();
+                QString extension = QFileInfo(filePath).suffix().toLower();
+                
+                // Same supported extensions list as in dragEnterEvent
+                QStringList supportedExtensions = {
+                    "cr2", "cr3", "nef", "nrw", "arw", "srf", "sr2", "orf",
+                    "rw2", "dng", "raf", "pef", "ptx", "x3f", "mrw", 
+                    "dcr", "kdc", "erf", "mef", "mos", "raw", "rwl"
+                };
+                
+                if (supportedExtensions.contains(extension)) {
+                    // Load the RAW file
+                    loadRaw(filePath);
+                    event->acceptProposedAction();
+                    return;
+                }
+            }
+        }
+        
+        // Show error if no supported files were found
+        QMessageBox::warning(this, "Unsupported File", 
+                           "Please drop a supported RAW file format.\n"
+                           "Supported formats: CR2, CR3, NEF, ARW, DNG, RAF, and others.");
+    }
+    
+    event->ignore();
 }
