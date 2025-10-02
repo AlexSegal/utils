@@ -64,12 +64,13 @@ void GLImageWidget::initializeGL() {
     int loc_aPos = program.attributeLocation("aPos");
     int loc_aTex = program.attributeLocation("aTex");
 
-    // Setup quad VAO/VBO
+    // Setup quad VAO/VBO - Triangle strip order with flipped texture V coordinates
     GLfloat vertices[] = {
-        0,0, 0,1,
-        1,0, 1,1,
-        1,1, 1,0,
-        0,1, 0,0
+        // Position  Texture - Triangle strip order: BL -> BR -> TL -> TR
+        0.0f, 0.0f,  0.0f, 1.0f,  // Bottom-left → texture top-left
+        1.0f, 0.0f,  1.0f, 1.0f,  // Bottom-right → texture top-right  
+        0.0f, 1.0f,  0.0f, 0.0f,  // Top-left → texture bottom-left
+        1.0f, 1.0f,  1.0f, 0.0f   // Top-right → texture bottom-right
     };
     glGenVertexArrays(1, &vao);
     err = glGetError();
@@ -254,7 +255,7 @@ void GLImageWidget::paintGL() {
     program.setUniformValue("showGrid", showGrid);
 
     glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
     err = glGetError();
     if (err != GL_NO_ERROR) fprintf(stderr, "OpenGL error after draw: %d\n", err);
@@ -421,10 +422,11 @@ void GLImageWidget::fitToViewport() {
 }
 
 /**
- * @brief Export current view to image file
+ * @brief Export image to file with current adjustments applied
  * 
- * Renders current view (with all transformations and adjustments) to
- * framebuffer object, then saves as image file. Supports PNG/JPEG formats.
+ * Renders image at native resolution with current exposure, white balance,
+ * and contrast adjustments applied. Does not include zoom, pan, or aspect
+ * scaling transformations. Supports PNG/JPEG formats.
  * 
  * @param filename Output file path (format determined by extension)
  * @return true if export successful, false otherwise
@@ -433,15 +435,71 @@ bool GLImageWidget::exportImage(const QString &filename){
     if(!_m_tex) return false;
 
     makeCurrent();
-    QOpenGLFramebufferObject fbo(_m_tex->width(),_m_tex->height());
-    fbo.bind();
+    
+    // Create FBO at image's native resolution
+    QOpenGLFramebufferObject fbo(_m_tex->width(), _m_tex->height());
+    if (!fbo.bind()) {
+        fprintf(stderr, "Failed to bind framebuffer for export\n");
+        return false;
+    }
 
-    paintGL(); // render to FBO
+    // Set viewport to match native image size
+    glViewport(0, 0, _m_tex->width(), _m_tex->height());
+    
+    // Clear the framebuffer
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 
-    QImage img=fbo.toImage();
+    // Use shader program
+    if (!program.bind()) {
+        fprintf(stderr, "Failed to bind shader program for export\n");
+        fbo.release();
+        return false;
+    }
+
+    // Bind texture
+    _m_tex->bind(GL_TEXTURE0);
+    program.setUniformValue("u_texture", 0);
+    
+    // Set uniform values (current exposure, white balance, contrast)
+    program.setUniformValue("u_exposure", exposure);
+    program.setUniformValue("u_whiteBalance", wb);
+    program.setUniformValue("u_contrast", contrast);
+    
+    // For export, create transform to map [0,1] vertex coordinates to [-1,1] NDC
+    // This scales by 2 and translates by -1 to convert [0,1] -> [-1,1]
+    QMatrix3x3 transform;
+    transform.setToIdentity();
+    transform(0,0) = 2.0f;  // Scale X by 2
+    transform(1,1) = 2.0f;  // Scale Y by 2  
+    transform(0,2) = -1.0f; // Translate X by -1
+    transform(1,2) = -1.0f; // Translate Y by -1
+    program.setUniformValue("transform", transform);
+
+    // Render full-screen quad at native resolution
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+
+    program.release();
+    
+    // Read back the image
+    QImage img = fbo.toImage();
     fbo.release();
+    
+    // Restore widget viewport
+    glViewport(0, 0, width(), height());
 
-    return img.save(filename);
+    // Save the image
+    bool success = img.save(filename);
+    if (!success) {
+        fprintf(stderr, "Failed to save image to %s\n", filename.toUtf8().constData());
+    } else {
+        fprintf(stderr, "Successfully exported %dx%d image to %s\n", 
+                img.width(), img.height(), filename.toUtf8().constData());
+    }
+    
+    return success;
 }
 
 /**
