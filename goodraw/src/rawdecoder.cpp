@@ -9,6 +9,7 @@
 #include "rawdecoder.h"
 #include <stdexcept>
 #include <memory>
+#include <QDebug>
 
 /**
  * @brief Load and process RAW image file using LibRaw
@@ -47,5 +48,36 @@ RawImageResult loadRawImage(const std::string& path){
     libraw_processed_image_t* img = raw.dcraw_make_mem_image();
     libraw_colordata_t color = raw.imgdata.color;
     
-    return RawImageResult{img, color};
+    // Extract exposure compensation from multiple possible sources
+    float exposureComp = 0.0f;
+    
+    // Try common metadata first (most universal)
+    if (raw.imgdata.makernotes.common.ExposureCalibrationShift != 0.0f) {
+        exposureComp = raw.imgdata.makernotes.common.ExposureCalibrationShift;
+        qDebug() << "Using ExposureCalibrationShift:" << exposureComp << "EV";
+    }
+    // Fallback to Fuji-specific field
+    else if (raw.imgdata.makernotes.fuji.BrightnessCompensation != 0.0f) {
+        exposureComp = raw.imgdata.makernotes.fuji.BrightnessCompensation;
+        qDebug() << "Using Fuji BrightnessCompensation:" << exposureComp << "EV";
+    }
+    else {
+        qDebug() << "No exposure compensation found in checked fields";
+    }
+    
+    // Comprehensive debug output for EXIF exploration
+    qDebug() << "=== EXIF Exposure Compensation Analysis ===";
+    qDebug() << "Final exposure compensation:" << exposureComp << "EV";
+    qDebug() << "Common.ExposureCalibrationShift:" << raw.imgdata.makernotes.common.ExposureCalibrationShift;
+    qDebug() << "Fuji.BrightnessCompensation:" << raw.imgdata.makernotes.fuji.BrightnessCompensation;
+    qDebug() << "Common.FlashEC:" << raw.imgdata.makernotes.common.FlashEC;
+    qDebug() << "DNG.baseline_exposure:" << raw.imgdata.color.dng_levels.baseline_exposure;
+    qDebug() << "Canon.ExposureMode:" << raw.imgdata.makernotes.canon.ExposureMode;
+    qDebug() << "=== Basic EXIF Data ===";
+    qDebug() << "Aperture:" << raw.imgdata.other.aperture;
+    qDebug() << "Shutter speed:" << raw.imgdata.other.shutter;
+    qDebug() << "ISO speed:" << raw.imgdata.other.iso_speed;
+    qDebug() << "Focal length:" << raw.imgdata.other.focal_len;
+    
+    return RawImageResult{img, color, exposureComp};
 }

@@ -49,11 +49,13 @@ add_executable(${PROJECT_NAME}
     include/halfimage.h
     include/colortransform.h
     include/rawdecoder.h 
-    include/glsl_shaders.h 
+    include/glsl_shaders.h
+    include/precisionslider.h
     src/main.cpp
     src/mainwindow.cpp
     src/glimagewidget.cpp
     src/rawdecoder.cpp
+    src/precisionslider.cpp
 )
 
 # Include directories

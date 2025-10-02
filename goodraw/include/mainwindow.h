@@ -1,12 +1,12 @@
 // mainwindow.h
 #pragma once
 #include <QMainWindow>
-#include <QSlider>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include "glimagewidget.h"
 #include "halfimage.h"
 #include "rawdecoder.h"
+#include "precisionslider.h"
 
 /**
  * @brief Main application window with image viewer and adjustment controls
@@ -44,9 +44,9 @@ protected:
 
 private:
     GLImageWidget* glWidget;              ///< OpenGL image display widget
-    QSlider* exposureSlider;              ///< Exposure adjustment in stops (-3 to +3)
-    QSlider* kelvinSlider;                ///< White balance temperature shift
-    QSlider* contrastSlider;              ///< Contrast adjustment (0.5 to 2.0)
+    PrecisionSlider* exposureSlider;      ///< Exposure adjustment in stops (-5.0 to +5.0)
+    PrecisionSlider* kelvinSlider;        ///< White balance temperature shift (-1000K to +1000K)
+    PrecisionSlider* contrastSlider;      ///< Contrast adjustment (0.1 to 3.0)
     float camMulR = 1.0f, camMulG = 1.0f, camMulB = 1.0f; ///< Camera white balance multipliers
     QString lastOpenedDirectory;         ///< Remember last directory for file dialog
 };

@@ -12,6 +12,7 @@
 struct RawImageResult {
 	libraw_processed_image_t* image;      ///< Processed 16-bit RGB image data
 	libraw_colordata_t color;             ///< Camera color matrices and white balance
+	float exposureCompensation;           ///< Camera exposure compensation in stops (from EXIF)
 };
 
 /**
