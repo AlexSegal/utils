@@ -114,10 +114,31 @@ inline void cameraToACEScg(HalfImage& img, const libraw_colordata_t& color){
 }
 
 /**
- * @brief Convert XYZ color space to ACEScg working space
+ * @brief Multiply two 3x3 matrices: result = A * B
+ * 
+ * Performs matrix multiplication for color space transformations.
+ * Used to pre-compute combined transformation matrices for efficiency.
+ * 
+ * @param A First matrix [3][3]
+ * @param B Second matrix [3][3] 
+ * @param result Output matrix [3][3] = A * B
+ */
+inline void multiplyMatrix3x3(const float A[3][3], const float B[3][3], float result[3][3]) {
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            result[i][j] = A[i][0] * B[0][j] + A[i][1] * B[1][j] + A[i][2] * B[2][j];
+        }
+    }
+}
+
+/**
+ * @brief Convert XYZ color space to ACEScg working space (optimized)
  * 
  * Transforms LibRaw's XYZ output to ACEScg for professional color grading.
  * LibRaw (output_color=5) → XYZ → ACES AP0 → ACEScg (AP1)
+ * 
+ * Optimization: Pre-computes the combined XYZ→ACEScg matrix to avoid 
+ * double matrix multiplication per pixel, improving performance significantly.
  * 
  * @param img Image data to transform from XYZ to ACEScg (modified in-place)
  */
@@ -138,20 +159,41 @@ inline void xyzToACEScg(HalfImage& img) {
         { 0.0083161484f, -0.0060324498f,  0.9977163014f}
     };
 
-    // Apply transformation chain to each pixel (parallelized)
+    // Pre-compute combined transformation matrix: XYZ → ACEScg
+    // This optimization reduces per-pixel computation from 2 matrix multiplications to 1
+    static float XYZ_to_ACEScg[3][3];
+    static bool matrix_computed = false;
+    
+    if (!matrix_computed) {
+        multiplyMatrix3x3(AP0_to_AP1, XYZ_to_AP0, XYZ_to_ACEScg);
+        matrix_computed = true;
+    }
+
+    // Apply single combined transformation to each pixel (parallelized)
+    const int width = img.width;
+    const int height = img.height;
+    
 #ifdef _OPENMP
-    #pragma omp parallel for schedule(dynamic, 16)
+    #pragma omp parallel for schedule(static)
 #endif
-    for(int y=0;y<img.height;++y)
-        for(int x=0;x<img.width;++x){
-            half* p=img.pixel(x,y);
-            float r=float(p[0]), g=float(p[1]), b=float(p[2]);
+    for(int y = 0; y < height; ++y) {
+        half* row = img.pixel(0, y); // Get row pointer once for better cache locality
+        
+        for(int x = 0; x < width; ++x) {
+            half* p = row + x * 3; // Direct indexing instead of img.pixel(x,y) calls
             
-            applyMatrix3x3(XYZ_to_AP0,r,g,b);   // XYZ → ACES AP0
-            applyMatrix3x3(AP0_to_AP1,r,g,b);   // AP0 → ACEScg (AP1)
+            // Load to float once
+            float r = float(p[0]), g = float(p[1]), b = float(p[2]);
             
-            p[0]=half(r); p[1]=half(g); p[2]=half(b);
+            // Inline matrix multiplication to avoid function call overhead
+            float rr = XYZ_to_ACEScg[0][0]*r + XYZ_to_ACEScg[0][1]*g + XYZ_to_ACEScg[0][2]*b;
+            float gg = XYZ_to_ACEScg[1][0]*r + XYZ_to_ACEScg[1][1]*g + XYZ_to_ACEScg[1][2]*b;
+            float bb = XYZ_to_ACEScg[2][0]*r + XYZ_to_ACEScg[2][1]*g + XYZ_to_ACEScg[2][2]*b;
+            
+            // Store back to half once
+            p[0] = half(rr); p[1] = half(gg); p[2] = half(bb);
         }
+    }
 }
 
 /**
