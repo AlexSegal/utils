@@ -30,9 +30,12 @@ RawImageResult loadRawImage(const std::string& path){
     raw.imgdata.params.output_bps = 16;        // 16 bits per channel
     raw.imgdata.params.gamm[0] = 1.0;          // Linear gamma (no gamma correction)
     raw.imgdata.params.gamm[1] = 1.0;          // Linear gamma (no gamma correction)
-    raw.imgdata.params.no_auto_bright = 1;    // Disable auto-brightness
-    raw.imgdata.params.output_color = 5;      // XYZ color space (D65 illuminant)
+    raw.imgdata.params.no_auto_bright = 0;     // Enable auto-brightness
+    raw.imgdata.params.output_color = 5;       // XYZ color space (D65 illuminant)
         
+    raw.imgdata.params.use_camera_wb = 1;
+    raw.imgdata.params.use_camera_matrix = 1;
+    
     if(raw.open_file(path.c_str()) != LIBRAW_SUCCESS) {
             throw std::runtime_error("Failed to open RAW");
         }
